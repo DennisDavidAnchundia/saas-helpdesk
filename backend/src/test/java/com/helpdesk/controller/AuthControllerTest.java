@@ -1,6 +1,7 @@
 package com.helpdesk.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.helpdesk.dto.LoginRequest;
 import com.helpdesk.dto.RegisterRequest;
 import com.helpdesk.repository.TenantRepository;
 import com.helpdesk.repository.UserRepository;
@@ -38,9 +39,13 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        AuthService authService = new AuthService(userRepository, tenantRepository, passwordEncoder);
+        com.helpdesk.config.JwtProvider jwtProvider = new com.helpdesk.config.JwtProvider(
+                "testSecretKeyForTestingOnly12345678901234567890", 86400000);
+        AuthService authService = new AuthService(userRepository, tenantRepository, passwordEncoder, jwtProvider);
         AuthController authController = new AuthController(authService);
-        mockMvc = MockMvcBuilders.standaloneSetup(authController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(authController)
+                .setControllerAdvice(new com.helpdesk.exception.GlobalExceptionHandler())
+                .build();
     }
 
     @Test
@@ -101,6 +106,79 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void loginWithValidCredentialsReturnsToken() throws Exception {
+        // First register a user
+        RegisterRequest registerRequest = new RegisterRequest(
+                "Dennis Anchundia",
+                "dennis@test.com",
+                "password123",
+                "Mi Empresa"
+        );
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated());
+
+        // Then login
+        LoginRequest loginRequest = new LoginRequest(
+                "dennis@test.com",
+                "password123",
+                "mi-empresa"
+        );
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.email").value("dennis@test.com"))
+                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.tenantName").value("Mi Empresa"));
+    }
+
+    @Test
+    void loginWithWrongPasswordReturnsUnauthorized() throws Exception {
+        // First register a user
+        RegisterRequest registerRequest = new RegisterRequest(
+                "Dennis Anchundia",
+                "dennis@test.com",
+                "password123",
+                "Mi Empresa"
+        );
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated());
+
+        // Then login with wrong password
+        LoginRequest loginRequest = new LoginRequest(
+                "dennis@test.com",
+                "wrongpassword",
+                "mi-empresa"
+        );
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void loginWithNonExistentUserReturnsBadRequest() throws Exception {
+        LoginRequest loginRequest = new LoginRequest(
+                "nonexistent@test.com",
+                "password123",
+            "mi-empresa"
+        );
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isBadRequest());
     }
 }

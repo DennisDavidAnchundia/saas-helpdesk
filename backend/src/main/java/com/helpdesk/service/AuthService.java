@@ -1,8 +1,10 @@
 package com.helpdesk.service;
 
+import com.helpdesk.config.JwtProvider;
+import com.helpdesk.dto.LoginRequest;
+import com.helpdesk.dto.LoginResponse;
 import com.helpdesk.dto.RegisterRequest;
 import com.helpdesk.dto.RegisterResponse;
-import com.helpdesk.exception.ResourceNotFoundException;
 import com.helpdesk.model.Tenant;
 import com.helpdesk.model.User;
 import com.helpdesk.model.enums.Role;
@@ -18,13 +20,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final TenantRepository tenantRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
 
     public AuthService(UserRepository userRepository,
                        TenantRepository tenantRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       JwtProvider jwtProvider) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtProvider = jwtProvider;
     }
 
     @Transactional
@@ -61,6 +66,39 @@ public class AuthService {
                 tenant.getId(),
                 tenant.getName(),
                 user.getCreatedAt()
+        );
+    }
+
+    public LoginResponse login(LoginRequest request) {
+        Tenant tenant = tenantRepository.findBySlug(request.getTenantSlug())
+                .orElseThrow(() -> new IllegalArgumentException("Empresa no encontrada"));
+
+        User user = userRepository.findByTenantIdAndEmail(tenant.getId(), request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Email o contraseña incorrectos"));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Email o contraseña incorrectos");
+        }
+
+        if (!user.isActive()) {
+            throw new IllegalArgumentException("La cuenta está desactivada");
+        }
+
+        String token = jwtProvider.generateToken(
+                user.getId(),
+                tenant.getId(),
+                user.getEmail(),
+                user.getRole().name()
+        );
+
+        return new LoginResponse(
+                token,
+                user.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getRole().name(),
+                tenant.getId(),
+                tenant.getName()
         );
     }
 
