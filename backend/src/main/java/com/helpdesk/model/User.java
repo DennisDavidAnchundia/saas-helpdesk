@@ -1,5 +1,6 @@
 package com.helpdesk.model;
 
+import com.helpdesk.model.enums.Provider;
 import com.helpdesk.model.enums.Role;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -19,7 +20,7 @@ public class User {
     @Column(nullable = false)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String password;
 
     @Column(name = "full_name", nullable = false)
@@ -28,6 +29,13 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Provider provider = Provider.LOCAL;
+
+    @Column(name = "provider_id", length = 255)
+    private String providerId;
 
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
@@ -60,6 +68,17 @@ public class User {
         this.password = password;
         this.fullName = fullName;
         this.role = role;
+        this.provider = Provider.LOCAL;
+    }
+
+    public User(Tenant tenant, String email, String fullName, String avatarUrl, Role role, Provider provider, String providerId) {
+        this.tenant = tenant;
+        this.email = email;
+        this.fullName = fullName;
+        this.avatarUrl = avatarUrl;
+        this.role = role;
+        this.provider = provider;
+        this.providerId = providerId;
     }
 
     public Long getId() { return id; }
@@ -79,6 +98,12 @@ public class User {
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
+
+    public Provider getProvider() { return provider; }
+    public void setProvider(Provider provider) { this.provider = provider; }
+
+    public String getProviderId() { return providerId; }
+    public void setProviderId(String providerId) { this.providerId = providerId; }
 
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }

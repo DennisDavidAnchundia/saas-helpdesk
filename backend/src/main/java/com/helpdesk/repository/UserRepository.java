@@ -1,6 +1,7 @@
 package com.helpdesk.repository;
 
 import com.helpdesk.model.User;
+import com.helpdesk.model.enums.Provider;
 import com.helpdesk.model.enums.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,6 +17,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByTenantIdAndEmail(Long tenantId, String email);
 
     boolean existsByTenantIdAndEmail(Long tenantId, String email);
+
+    Optional<User> findByProviderAndProviderId(Provider provider, String providerId);
 
     List<User> findByTenantIdAndRole(Long tenantId, Role role);
 

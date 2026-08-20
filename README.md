@@ -4,7 +4,7 @@ Sistema de atención al cliente tipo Zendesk/Freshdesk, construido como SaaS mul
 
 ## Stack
 
-- **Backend:** Java 21, Spring Boot 4.0.7 (MVC, Data JPA, Security, Validation, WebSocket, Cache, Actuator)
+- **Backend:** Java 21, Spring Boot 4.0.7 (MVC, Data JPA, Security, OAuth2 Client, Validation, WebSocket, Cache, Actuator)
 - **Base de datos:** PostgreSQL 16, Redis 7, Flyway
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, TanStack Query, i18n
 - **Tiempo real:** WebSocket (STOMP)
@@ -15,6 +15,7 @@ Sistema de atención al cliente tipo Zendesk/Freshdesk, construido como SaaS mul
 ## Funcionalidades
 
 - Multi-tenant (aislamiento por empresa con discriminator column)
+- Autenticación: Email/Password + **Google OAuth 2.0**
 - Roles: Admin, Agent, Customer
 - Sistema de tickets con estados y SLA
 - Chat en tiempo real
@@ -43,6 +44,28 @@ cd backend
 | GET | `/api/health` | Health check | No |
 | POST | `/api/auth/register` | Registrar usuario + empresa | No |
 | POST | `/api/auth/login` | Login y obtener JWT | No |
+| GET | `/oauth2/authorization/google` | Login con Google OAuth 2.0 | No |
+
+## Autenticación
+
+### Email/Password
+```bash
+# Registrar
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Tu Nombre","email":"tu@email.com","password":"password123","tenantName":"Tu Empresa"}'
+
+# Login
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"tu@email.com","password":"password123","tenantSlug":"tu-empresa"}'
+```
+
+### Google OAuth 2.0
+1. Configurar Google Cloud Console (ver `docs/estado.md`)
+2. Abrir `http://localhost:8080/oauth2/authorization/google`
+3. Autenticar con Google
+4. Redirigir a frontend con JWT
 
 ## Estructura
 
@@ -62,7 +85,9 @@ En construcción.
 - ✅ Fase 1.1: Entidades User, Tenant + enums
 - ✅ Fase 1.2: Registro de usuario con BCrypt
 - ✅ Fase 1.3: Login con JWT
+- ✅ Fase 1.4: Google OAuth 2.0 Login
 
 ### Siguiente
-- 1.4: Filtro de autenticación + roles
-- 1.5: Tests de auth
+- 1.5: Filtro de autenticación + roles
+- 1.6: Tests de auth
+- 1.7: Documentación OAuth
