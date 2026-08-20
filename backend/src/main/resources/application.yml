@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: saas-helpdesk
+
+  datasource:
+    url: jdbc:postgresql://localhost:${DB_PORT:5433}/${DB_NAME:helpdesk}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  cache:
+    type: redis
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:myDefaultSecretKeyForDevelopmentOnlyDoNotUseInProduction2024}
+    expiration: 86400000
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173}

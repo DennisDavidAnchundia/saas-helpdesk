@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: false
+
+  cache:
+    type: simple
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+app:
+  jwt:
+    secret: testSecretKeyForTestingOnly12345678901234567890
+    expiration: 86400000
+  cors:
+    allowed-origins: http://localhost:5173
