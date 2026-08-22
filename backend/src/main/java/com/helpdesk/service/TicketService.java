@@ -42,6 +42,43 @@ public class TicketService {
         return TicketResponse.from(ticketRepository.save(ticket));
     }
 
+    @Transactional
+    public TicketResponse assign(Long tenantId, Long ticketId, Long agentId) {
+        Ticket ticket = getEntity(tenantId, ticketId);
+        User agent = getActiveAgent(tenantId, agentId);
+        ticket.setAgent(agent);
+        return TicketResponse.from(ticketRepository.save(ticket));
+    }
+
+    @Transactional
+    public TicketResponse autoAssign(Long tenantId, Long ticketId) {
+        List<User> agents = userRepository.findActiveAgentsByTenant(tenantId);
+        if (agents.isEmpty()) {
+            throw new IllegalStateException("No hay agentes activos en esta empresa");
+        }
+
+        User selected = agents.stream()
+                .min(java.util.Comparator.comparingLong(agent ->
+                        ticketRepository.countByAgentIdAndStatusIn(
+                                agent.getId(),
+                                java.util.List.of(TicketStatus.OPEN,
+                                        TicketStatus.IN_PROGRESS,
+                                        TicketStatus.REOPENED))))
+                .orElseThrow();
+
+        Ticket ticket = getEntity(tenantId, ticketId);
+        ticket.setAgent(selected);
+        return TicketResponse.from(ticketRepository.save(ticket));
+    }
+
+    private User getActiveAgent(Long tenantId, Long agentId) {
+        return userRepository.findActiveAgentsByTenant(tenantId).stream()
+                .filter(u -> u.getId().equals(agentId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Agente no encontrado o inactivo en esta empresa"));
+    }
+
     @Transactional(readOnly = true)
     public List<TicketResponse> listForTenant(Long tenantId) {
         return ticketRepository.findByTenantIdOrderByCreatedAtDesc(tenantId).stream()
