@@ -62,7 +62,7 @@ curl -X POST http://localhost:8080/api/auth/login \
 ```
 
 ### Google OAuth 2.0
-1. Configurar Google Cloud Console (ver `docs/estado.md`)
+1. Configurar Google Cloud Console
 2. Abrir `http://localhost:8080/oauth2/authorization/google`
 3. Autenticar con Google
 4. Redirigir a frontend con JWT
