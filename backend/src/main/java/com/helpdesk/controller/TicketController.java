@@ -4,6 +4,7 @@ import com.helpdesk.config.JwtPrincipal;
 import com.helpdesk.dto.CreateTicketRequest;
 import com.helpdesk.dto.TicketResponse;
 import com.helpdesk.dto.UpdateTicketRequest;
+import com.helpdesk.model.enums.TicketStatus;
 import com.helpdesk.service.TicketService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -47,5 +48,18 @@ public class TicketController {
                                  @Valid @RequestBody UpdateTicketRequest request,
                                  @AuthenticationPrincipal JwtPrincipal principal) {
         return ticketService.update(principal.getTenantId(), id, request);
+    }
+
+    @PatchMapping("/{id}/status")
+    public TicketResponse changeStatus(@PathVariable Long id,
+                                       @RequestParam TicketStatus status,
+                                       @AuthenticationPrincipal JwtPrincipal principal) {
+        return ticketService.changeStatus(
+                principal.getTenantId(),
+                principal.getUserId(),
+                principal.getRole(),
+                id,
+                status
+        );
     }
 }

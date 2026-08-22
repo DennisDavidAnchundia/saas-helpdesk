@@ -5,11 +5,13 @@ import com.helpdesk.dto.TicketResponse;
 import com.helpdesk.dto.UpdateTicketRequest;
 import com.helpdesk.model.Ticket;
 import com.helpdesk.model.User;
+import com.helpdesk.model.enums.TicketStatus;
 import com.helpdesk.repository.TicketRepository;
 import com.helpdesk.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -64,6 +66,41 @@ public class TicketService {
         if (request.getPriority() != null) {
             ticket.setPriority(request.getPriority());
         }
+        return TicketResponse.from(ticketRepository.save(ticket));
+    }
+
+    @Transactional
+    public TicketResponse changeStatus(Long tenantId, Long userId, String role,
+                                       Long ticketId, TicketStatus target) {
+        Ticket ticket = getEntity(tenantId, ticketId);
+
+        if (!ticket.getStatus().canTransitionTo(target)) {
+            throw new IllegalArgumentException(
+                    "Transicion invalida: " + ticket.getStatus() + " -> " + target);
+        }
+
+        if ("CUSTOMER".equals(role)) {
+            if (target != TicketStatus.REOPENED) {
+                throw new IllegalArgumentException("Un cliente solo puede reabrir tickets");
+            }
+            if (!ticket.getCustomer().getId().equals(userId)) {
+                throw new IllegalArgumentException("No puedes reabrir un ticket de otro usuario");
+            }
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        ticket.setStatus(target);
+
+        if (target == TicketStatus.IN_PROGRESS && ticket.getFirstResponseAt() == null) {
+            ticket.setFirstResponseAt(now);
+        }
+        if (target == TicketStatus.RESOLVED) {
+            ticket.setResolvedAt(now);
+        }
+        if (target == TicketStatus.REOPENED) {
+            ticket.setResolvedAt(null);
+        }
+
         return TicketResponse.from(ticketRepository.save(ticket));
     }
 
