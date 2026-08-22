@@ -65,6 +65,7 @@ public class AuthService {
                 user.getRole().name(),
                 tenant.getId(),
                 tenant.getName(),
+                slug,
                 user.getCreatedAt()
         );
     }

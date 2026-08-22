@@ -10,18 +10,20 @@ public class RegisterResponse {
     private String role;
     private Long tenantId;
     private String tenantName;
+    private String tenantSlug;
     private LocalDateTime createdAt;
 
     public RegisterResponse() {}
 
     public RegisterResponse(Long userId, String email, String fullName, String role,
-                            Long tenantId, String tenantName, LocalDateTime createdAt) {
+                            Long tenantId, String tenantName, String tenantSlug, LocalDateTime createdAt) {
         this.userId = userId;
         this.email = email;
         this.fullName = fullName;
         this.role = role;
         this.tenantId = tenantId;
         this.tenantName = tenantName;
+        this.tenantSlug = tenantSlug;
         this.createdAt = createdAt;
     }
 
@@ -42,6 +44,9 @@ public class RegisterResponse {
 
     public String getTenantName() { return tenantName; }
     public void setTenantName(String tenantName) { this.tenantName = tenantName; }
+
+    public String getTenantSlug() { return tenantSlug; }
+    public void setTenantSlug(String tenantSlug) { this.tenantSlug = tenantSlug; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
