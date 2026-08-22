@@ -66,7 +66,7 @@ public class TicketService {
     public TicketResponse autoAssign(Long tenantId, Long ticketId) {
         List<User> agents = userRepository.findActiveAgentsByTenant(tenantId);
         if (agents.isEmpty()) {
-            throw new IllegalStateException("No hay agentes activos en esta empresa");
+            throw new IllegalArgumentException("No hay agentes activos en esta empresa");
         }
 
         User selected = agents.stream()
