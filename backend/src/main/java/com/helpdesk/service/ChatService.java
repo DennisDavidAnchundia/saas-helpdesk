@@ -20,13 +20,16 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final PresenceService presenceService;
 
     public ChatService(MessageRepository messageRepository,
                        TicketRepository ticketRepository,
-                       UserRepository userRepository) {
+                       UserRepository userRepository,
+                       PresenceService presenceService) {
         this.messageRepository = messageRepository;
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
+        this.presenceService = presenceService;
     }
 
     @Transactional
@@ -51,6 +54,12 @@ public class ChatService {
         return messageRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).stream()
                 .map(ChatMessageResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> onlineParticipants(JwtPrincipal principal, Long ticketId) {
+        Ticket ticket = accessibleTicket(principal, ticketId);
+        return presenceService.onlineUsers(ticket.getTenant().getId());
     }
 
     public Ticket accessibleTicket(JwtPrincipal principal, Long ticketId) {

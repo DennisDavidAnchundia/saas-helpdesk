@@ -1,10 +1,12 @@
 package com.helpdesk.controller;
 
 import com.helpdesk.config.JwtPrincipal;
+import com.helpdesk.dto.ChatMessageResponse;
 import com.helpdesk.dto.CreateTicketRequest;
 import com.helpdesk.dto.TicketResponse;
 import com.helpdesk.dto.UpdateTicketRequest;
 import com.helpdesk.model.enums.TicketStatus;
+import com.helpdesk.service.ChatService;
 import com.helpdesk.service.TicketService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -13,15 +15,18 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/tickets")
 public class TicketController {
 
     private final TicketService ticketService;
+    private final ChatService chatService;
 
-    public TicketController(TicketService ticketService) {
+    public TicketController(TicketService ticketService, ChatService chatService) {
         this.ticketService = ticketService;
+        this.chatService = chatService;
     }
 
     @PostMapping
@@ -76,5 +81,17 @@ public class TicketController {
     public TicketResponse autoAssign(@PathVariable Long id,
                                      @AuthenticationPrincipal JwtPrincipal principal) {
         return ticketService.autoAssign(principal.getTenantId(), id);
+    }
+
+    @GetMapping("/{id}/messages")
+    public List<ChatMessageResponse> messages(@PathVariable Long id,
+                                              @AuthenticationPrincipal JwtPrincipal principal) {
+        return chatService.historyForUser(principal, id);
+    }
+
+    @GetMapping("/{id}/presence")
+    public Map<String, List<Long>> presence(@PathVariable Long id,
+                                            @AuthenticationPrincipal JwtPrincipal principal) {
+        return Map.of("online", chatService.onlineParticipants(principal, id));
     }
 }
