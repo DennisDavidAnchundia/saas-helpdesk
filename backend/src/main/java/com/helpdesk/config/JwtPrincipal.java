@@ -1,6 +1,6 @@
 package com.helpdesk.config;
 
-public class JwtPrincipal {
+public class JwtPrincipal implements java.security.Principal {
 
     private final Long userId;
     private final Long tenantId;
@@ -13,6 +13,9 @@ public class JwtPrincipal {
         this.email = email;
         this.role = role;
     }
+
+    @Override
+    public String getName() { return email; }
 
     public Long getUserId() { return userId; }
     public Long getTenantId() { return tenantId; }
