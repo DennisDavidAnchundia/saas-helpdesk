@@ -5,6 +5,7 @@ import com.helpdesk.dto.TicketResponse;
 import com.helpdesk.dto.UpdateTicketRequest;
 import com.helpdesk.model.Ticket;
 import com.helpdesk.model.User;
+import com.helpdesk.model.enums.TicketPriority;
 import com.helpdesk.model.enums.TicketStatus;
 import com.helpdesk.repository.TicketRepository;
 import com.helpdesk.repository.UserRepository;
@@ -13,9 +14,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class TicketService {
+
+    // Horas maximas de resolucion segun prioridad (politica SLA)
+    private static final Map<TicketPriority, Long> SLA_RESOLUTION_HOURS = Map.of(
+            TicketPriority.URGENT, 4L,
+            TicketPriority.HIGH, 8L,
+            TicketPriority.MEDIUM, 24L,
+            TicketPriority.LOW, 72L
+    );
 
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
@@ -38,6 +48,8 @@ public class TicketService {
         if (request.getPriority() != null) {
             ticket.setPriority(request.getPriority());
         }
+        ticket.setSlaDueAt(LocalDateTime.now().plusHours(
+                SLA_RESOLUTION_HOURS.get(ticket.getPriority())));
 
         return TicketResponse.from(ticketRepository.save(ticket));
     }
@@ -100,8 +112,14 @@ public class TicketService {
         if (request.getDescription() != null && !request.getDescription().isBlank()) {
             ticket.setDescription(request.getDescription().trim());
         }
-        if (request.getPriority() != null) {
+        if (request.getPriority() != null && request.getPriority() != ticket.getPriority()) {
             ticket.setPriority(request.getPriority());
+            // Recalcular SLA si el ticket sigue activo
+            if (ticket.getStatus() != TicketStatus.RESOLVED
+                    && ticket.getStatus() != TicketStatus.CLOSED) {
+                ticket.setSlaDueAt(LocalDateTime.now().plusHours(
+                        SLA_RESOLUTION_HOURS.get(request.getPriority())));
+            }
         }
         return TicketResponse.from(ticketRepository.save(ticket));
     }
@@ -134,8 +152,12 @@ public class TicketService {
         if (target == TicketStatus.RESOLVED) {
             ticket.setResolvedAt(now);
         }
+        if (target == TicketStatus.CLOSED) {
+            ticket.setClosedAt(now);
+        }
         if (target == TicketStatus.REOPENED) {
             ticket.setResolvedAt(null);
+            ticket.setClosedAt(null);
         }
 
         return TicketResponse.from(ticketRepository.save(ticket));

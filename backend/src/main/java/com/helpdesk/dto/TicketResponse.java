@@ -19,6 +19,9 @@ public class TicketResponse {
     private String agentName;
     private LocalDateTime firstResponseAt;
     private LocalDateTime resolvedAt;
+    private LocalDateTime closedAt;
+    private LocalDateTime slaDueAt;
+    private Boolean slaBreached;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -37,6 +40,12 @@ public class TicketResponse {
         r.agentName = t.getAgent() != null ? t.getAgent().getFullName() : null;
         r.firstResponseAt = t.getFirstResponseAt();
         r.resolvedAt = t.getResolvedAt();
+        r.closedAt = t.getClosedAt();
+        r.slaDueAt = t.getSlaDueAt();
+        boolean active = t.getStatus() != TicketStatus.RESOLVED
+                && t.getStatus() != TicketStatus.CLOSED;
+        r.slaBreached = t.getSlaDueAt() != null && active
+                && t.getSlaDueAt().isBefore(LocalDateTime.now());
         r.createdAt = t.getCreatedAt();
         r.updatedAt = t.getUpdatedAt();
         return r;
@@ -74,6 +83,15 @@ public class TicketResponse {
 
     public LocalDateTime getResolvedAt() { return resolvedAt; }
     public void setResolvedAt(LocalDateTime resolvedAt) { this.resolvedAt = resolvedAt; }
+
+    public LocalDateTime getClosedAt() { return closedAt; }
+    public void setClosedAt(LocalDateTime closedAt) { this.closedAt = closedAt; }
+
+    public LocalDateTime getSlaDueAt() { return slaDueAt; }
+    public void setSlaDueAt(LocalDateTime slaDueAt) { this.slaDueAt = slaDueAt; }
+
+    public Boolean getSlaBreached() { return slaBreached; }
+    public void setSlaBreached(Boolean slaBreached) { this.slaBreached = slaBreached; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
