@@ -1,6 +1,7 @@
 package com.helpdesk.service;
 
 import com.helpdesk.dto.CreateTicketRequest;
+import com.helpdesk.dto.TicketPageResponse;
 import com.helpdesk.dto.TicketResponse;
 import com.helpdesk.dto.UpdateTicketRequest;
 import com.helpdesk.model.Ticket;
@@ -8,7 +9,12 @@ import com.helpdesk.model.User;
 import com.helpdesk.model.enums.TicketPriority;
 import com.helpdesk.model.enums.TicketStatus;
 import com.helpdesk.repository.TicketRepository;
+import com.helpdesk.repository.TicketSpecifications;
 import com.helpdesk.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,11 +105,22 @@ public class TicketService {
                         "Agente no encontrado o inactivo en esta empresa"));
     }
 
+    /**
+     * Listado paginado con filtros opcionales (status, priority, agentId).
+     * Los filtros null no se aplican; size se limita a [1, 100].
+     */
     @Transactional(readOnly = true)
-    public List<TicketResponse> listForTenant(Long tenantId) {
-        return ticketRepository.findByTenantIdOrderByCreatedAtDesc(tenantId).stream()
-                .map(TicketResponse::from)
-                .toList();
+    public TicketPageResponse listForTenant(Long tenantId, TicketStatus status,
+                                            TicketPriority priority, Long agentId,
+                                            int page, int size) {
+        Pageable pageable = PageRequest.of(
+                Math.max(page, 0),
+                Math.min(Math.max(size, 1), 100),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Ticket> result = ticketRepository.findAll(
+                TicketSpecifications.withFilters(tenantId, status, priority, agentId),
+                pageable);
+        return TicketPageResponse.of(result);
     }
 
     @Transactional(readOnly = true)

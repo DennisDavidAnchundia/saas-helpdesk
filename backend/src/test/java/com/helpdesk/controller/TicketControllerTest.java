@@ -96,7 +96,8 @@ class TicketControllerTest {
         mockMvc.perform(get("/api/tickets")
                         .header("Authorization", "Bearer " + token(userB)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
+                .andExpect(jsonPath("$.content", hasSize(0)))
+                .andExpect(jsonPath("$.totalElements").value(0));
 
         mockMvc.perform(get("/api/tickets/" + ticketId)
                         .header("Authorization", "Bearer " + token(userB)))
@@ -225,6 +226,49 @@ class TicketControllerTest {
                 "El segundo ticket debe ir al otro agente");
     }
 
+    @Test
+    void listSupportsFiltersAndPagination() throws Exception {
+        Tenant tenant = createTenant("Filter Co");
+        User admin = createUser(tenant, "admin@filter.com", Role.ADMIN);
+
+        createTicketAsWithPriority(admin, "Uno mediano", "MEDIUM");
+        createTicketAsWithPriority(admin, "Dos alto", "HIGH");
+        createTicketAsWithPriority(admin, "Tres alto", "HIGH");
+
+        // Filtro por prioridad
+        mockMvc.perform(get("/api/tickets?priority=HIGH")
+                        .header("Authorization", "Bearer " + token(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].priority").value("HIGH"));
+
+        // Paginacion: 3 tickets, pagina de 2
+        mockMvc.perform(get("/api/tickets?size=2&page=0")
+                        .header("Authorization", "Bearer " + token(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2));
+
+        // Ultima pagina con el ticket restante
+        mockMvc.perform(get("/api/tickets?size=2&page=1")
+                        .header("Authorization", "Bearer " + token(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.page").value(1));
+    }
+
+    @Test
+    void invalidStatusParamIsRejected() throws Exception {
+        Tenant tenant = createTenant("Bad Param Co");
+        User admin = createUser(tenant, "admin@badparam.com", Role.ADMIN);
+
+        mockMvc.perform(get("/api/tickets?status=NOT_A_STATUS")
+                        .header("Authorization", "Bearer " + token(admin)))
+                .andExpect(status().isBadRequest());
+    }
+
     // ---------- helpers ----------
 
     private Tenant createTenant(String name) {
@@ -247,10 +291,14 @@ class TicketControllerTest {
     }
 
     private MvcResult createTicketAs(User user, String title) throws Exception {
+        return createTicketAsWithPriority(user, title, "MEDIUM");
+    }
+
+    private MvcResult createTicketAsWithPriority(User user, String title, String priority) throws Exception {
         return mockMvc.perform(post("/api/tickets")
                         .header("Authorization", "Bearer " + token(user))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(ticketJson(title, "MEDIUM")))
+                        .content(ticketJson(title, priority)))
                 .andExpect(status().isCreated())
                 .andReturn();
     }

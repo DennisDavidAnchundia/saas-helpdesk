@@ -3,8 +3,10 @@ package com.helpdesk.controller;
 import com.helpdesk.config.JwtPrincipal;
 import com.helpdesk.dto.ChatMessageResponse;
 import com.helpdesk.dto.CreateTicketRequest;
+import com.helpdesk.dto.TicketPageResponse;
 import com.helpdesk.dto.TicketResponse;
 import com.helpdesk.dto.UpdateTicketRequest;
+import com.helpdesk.model.enums.TicketPriority;
 import com.helpdesk.model.enums.TicketStatus;
 import com.helpdesk.service.ChatService;
 import com.helpdesk.service.TicketService;
@@ -38,8 +40,14 @@ public class TicketController {
     }
 
     @GetMapping
-    public List<TicketResponse> list(@AuthenticationPrincipal JwtPrincipal principal) {
-        return ticketService.listForTenant(principal.getTenantId());
+    public TicketPageResponse list(@RequestParam(required = false) TicketStatus status,
+                                   @RequestParam(required = false) TicketPriority priority,
+                                   @RequestParam(required = false) Long agentId,
+                                   @RequestParam(defaultValue = "0") int page,
+                                   @RequestParam(defaultValue = "20") int size,
+                                   @AuthenticationPrincipal JwtPrincipal principal) {
+        return ticketService.listForTenant(
+                principal.getTenantId(), status, priority, agentId, page, size);
     }
 
     @GetMapping("/{id}")

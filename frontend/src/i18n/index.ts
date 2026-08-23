@@ -7,7 +7,7 @@ const resources = {
       nav: {
         workspace: 'Workspace',
         tickets: 'Tickets',
-        articles: 'Base de Conocimiento',
+        articles: 'Base de Conocimiento(FAQ)',
         chat: 'Chat en Vivo',
         metrics: 'Métricas',
         tests: 'Pruebas API',
@@ -66,6 +66,11 @@ const resources = {
         slaDue: 'SLA vence',
         slaBreached: 'SLA VENCIDO',
         firstResponse: '1ra respuesta',
+        all: 'Todos',
+        allPriorities: 'Toda prioridad',
+        prev: 'Anterior',
+        next: 'Siguiente',
+        pageOf: 'Página {{page}} de {{totalPages}}',
       },
       articles: {
         title: 'Base de Conocimiento',
@@ -214,6 +219,11 @@ const resources = {
         slaDue: 'SLA due',
         slaBreached: 'SLA BREACHED',
         firstResponse: 'First response',
+        all: 'All',
+        allPriorities: 'Any priority',
+        prev: 'Previous',
+        next: 'Next',
+        pageOf: 'Page {{page}} of {{totalPages}}',
       },
       articles: {
         title: 'Knowledge Base',

@@ -16,13 +16,32 @@ export const queryKeys = {
 
 // ===================== Tickets =====================
 
-export function useTickets() {
+export interface TicketFilters {
+  status?: TicketStatus;
+  priority?: TicketPriority;
+  page?: number;
+  size?: number;
+}
+
+export interface TicketPage {
+  content: Ticket[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export function useTickets(filters: TicketFilters = {}) {
+  const { status, priority, page, size } = filters;
   return useQuery({
-    queryKey: queryKeys.tickets,
+    queryKey: [...queryKeys.tickets, status ?? '', priority ?? '', page ?? 0, size ?? ''] as const,
     queryFn: async () => {
-      const { data } = await apiClient.get<Ticket[]>('/tickets');
+      const { data } = await apiClient.get<TicketPage>('/tickets', {
+        params: { status, priority, page, size },
+      });
       return data;
     },
+    placeholderData: (prev) => prev,
   });
 }
 
