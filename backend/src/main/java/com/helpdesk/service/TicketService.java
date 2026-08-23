@@ -4,6 +4,7 @@ import com.helpdesk.dto.CreateTicketRequest;
 import com.helpdesk.dto.TicketPageResponse;
 import com.helpdesk.dto.TicketResponse;
 import com.helpdesk.dto.UpdateTicketRequest;
+import com.helpdesk.model.Tenant;
 import com.helpdesk.model.Ticket;
 import com.helpdesk.model.User;
 import com.helpdesk.model.enums.TicketPriority;
@@ -20,18 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class TicketService {
-
-    // Horas maximas de resolucion segun prioridad (politica SLA)
-    private static final Map<TicketPriority, Long> SLA_RESOLUTION_HOURS = Map.of(
-            TicketPriority.URGENT, 4L,
-            TicketPriority.HIGH, 8L,
-            TicketPriority.MEDIUM, 24L,
-            TicketPriority.LOW, 72L
-    );
 
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
@@ -61,7 +53,7 @@ public class TicketService {
             ticket.setPriority(request.getPriority());
         }
         ticket.setSlaDueAt(LocalDateTime.now().plusHours(
-                SLA_RESOLUTION_HOURS.get(ticket.getPriority())));
+                slaResolutionHours(customer.getTenant(), ticket.getPriority())));
 
         Ticket saved = ticketRepository.save(ticket);
         subscriptionService.registerTicketCreated(customer.getTenant().getId());
@@ -113,12 +105,23 @@ public class TicketService {
     public TicketPageResponse listForTenant(Long tenantId, TicketStatus status,
                                             TicketPriority priority, Long agentId,
                                             int page, int size) {
+        return listForCustomer(tenantId, null, status, priority, agentId, page, size);
+    }
+
+    /**
+     * Igual que listForTenant pero con scoping opcional por cliente:
+     * si customerId != null (rol CUSTOMER) solo ve sus propios tickets.
+     */
+    @Transactional(readOnly = true)
+    public TicketPageResponse listForCustomer(Long tenantId, Long customerId, TicketStatus status,
+                                              TicketPriority priority, Long agentId,
+                                              int page, int size) {
         Pageable pageable = PageRequest.of(
                 Math.max(page, 0),
                 Math.min(Math.max(size, 1), 100),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Ticket> result = ticketRepository.findAll(
-                TicketSpecifications.withFilters(tenantId, status, priority, agentId),
+                TicketSpecifications.withFilters(tenantId, status, priority, agentId, customerId),
                 pageable);
         return TicketPageResponse.of(result);
     }
@@ -126,6 +129,29 @@ public class TicketService {
     @Transactional(readOnly = true)
     public TicketResponse getForTenant(Long tenantId, Long ticketId) {
         return TicketResponse.from(getEntity(tenantId, ticketId));
+    }
+
+    /**
+     * Detalle para el usuario autenticado: un CUSTOMER solo puede ver
+     * sus propios tickets; ADMIN y AGENT ven todo el tenant.
+     */
+    @Transactional(readOnly = true)
+    public TicketResponse getForUser(Long tenantId, Long userId, String role, Long ticketId) {
+        Ticket ticket = getEntity(tenantId, ticketId);
+        if ("CUSTOMER".equals(role) && !ticket.getCustomer().getId().equals(userId)) {
+            throw new IllegalArgumentException("No tienes acceso a este ticket");
+        }
+        return TicketResponse.from(ticket);
+    }
+
+    /** Horas de SLA de resolucion segun prioridad, leidas de la config del tenant. */
+    private long slaResolutionHours(Tenant tenant, TicketPriority priority) {
+        return switch (priority) {
+            case URGENT -> tenant.getSlaUrgentHours();
+            case HIGH -> tenant.getSlaHighHours();
+            case MEDIUM -> tenant.getSlaMediumHours();
+            case LOW -> tenant.getSlaLowHours();
+        };
     }
 
     @Transactional
@@ -143,7 +169,7 @@ public class TicketService {
             if (ticket.getStatus() != TicketStatus.RESOLVED
                     && ticket.getStatus() != TicketStatus.CLOSED) {
                 ticket.setSlaDueAt(LocalDateTime.now().plusHours(
-                        SLA_RESOLUTION_HOURS.get(request.getPriority())));
+                        slaResolutionHours(ticket.getTenant(), request.getPriority())));
             }
         }
         return TicketResponse.from(ticketRepository.save(ticket));

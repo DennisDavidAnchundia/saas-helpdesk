@@ -46,14 +46,17 @@ public class TicketController {
                                    @RequestParam(defaultValue = "0") int page,
                                    @RequestParam(defaultValue = "20") int size,
                                    @AuthenticationPrincipal JwtPrincipal principal) {
-        return ticketService.listForTenant(
-                principal.getTenantId(), status, priority, agentId, page, size);
+        // Un CUSTOMER solo ve sus propios tickets; ADMIN/AGENT ven todo el tenant
+        Long customerId = "CUSTOMER".equals(principal.getRole()) ? principal.getUserId() : null;
+        return ticketService.listForCustomer(
+                principal.getTenantId(), customerId, status, priority, agentId, page, size);
     }
 
     @GetMapping("/{id}")
     public TicketResponse get(@PathVariable Long id,
                               @AuthenticationPrincipal JwtPrincipal principal) {
-        return ticketService.getForTenant(principal.getTenantId(), id);
+        return ticketService.getForUser(
+                principal.getTenantId(), principal.getUserId(), principal.getRole(), id);
     }
 
     @PutMapping("/{id}")

@@ -11,10 +11,13 @@ import {
   CreditCardIcon,
   FlaskIcon,
   TicketIcon,
+  UsersIcon,
 } from '../components/icons';
+import AdminPanel from '../components/AdminPanel';
 import ArticlesPanel from '../components/ArticlesPanel';
 import BillingPanel from '../components/BillingPanel';
 import ChatPanel from '../components/ChatPanel';
+import CustomerPortal from '../components/CustomerPortal';
 import MetricsPanel from '../components/MetricsPanel';
 import TicketsSection from '../components/TicketsSection';
 
@@ -26,7 +29,7 @@ interface Props {
   onLogout: () => void;
 }
 
-type Tab = 'tickets' | 'articles' | 'chat' | 'metrics' | 'billing' | 'tests';
+type Tab = 'tickets' | 'articles' | 'chat' | 'metrics' | 'billing' | 'users' | 'tests';
 
 interface TestResult {
   endpoint: string;
@@ -44,16 +47,26 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
   const ticketsQuery = useTickets();
   const tickets = ticketsQuery.data?.content ?? [];
 
-  const baseNavItems: NavItem[] = [
-    { id: 'tickets', label: t('nav.tickets'), icon: <TicketIcon /> },
-    { id: 'articles', label: t('nav.articles'), icon: <BookIcon /> },
-    { id: 'chat', label: t('nav.chat'), icon: <ChatIcon /> },
-    { id: 'metrics', label: t('nav.metrics'), icon: <ChartIcon /> },
-    ...(role === 'ADMIN'
-      ? [{ id: 'billing', label: t('nav.billing'), icon: <CreditCardIcon /> }]
-      : []),
-    { id: 'tests', label: t('nav.tests'), icon: <FlaskIcon /> },
-  ];
+  const baseNavItems: NavItem[] =
+    role === 'CUSTOMER'
+      ? [
+          { id: 'tickets', label: t('nav.myTickets'), icon: <TicketIcon /> },
+          { id: 'articles', label: t('nav.articles'), icon: <BookIcon /> },
+          { id: 'chat', label: t('nav.chat'), icon: <ChatIcon /> },
+        ]
+      : [
+          { id: 'tickets', label: t('nav.tickets'), icon: <TicketIcon /> },
+          { id: 'articles', label: t('nav.articles'), icon: <BookIcon /> },
+          { id: 'chat', label: t('nav.chat'), icon: <ChatIcon /> },
+          { id: 'metrics', label: t('nav.metrics'), icon: <ChartIcon /> },
+          ...(role === 'ADMIN'
+            ? [
+                { id: 'billing', label: t('nav.billing'), icon: <CreditCardIcon /> },
+                { id: 'users', label: t('nav.users'), icon: <UsersIcon /> },
+              ]
+            : []),
+          { id: 'tests', label: t('nav.tests'), icon: <FlaskIcon /> },
+        ];
 
   // Badge con la cantidad de tickets abiertos
   const openCount = tickets.filter((t) => t.status === 'OPEN' || t.status === 'REOPENED').length;
@@ -105,12 +118,13 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
     >
       <div className="animate-fade-up space-y-6">
         {/* ===================== TICKETS ===================== */}
-        {tab === 'tickets' && <TicketsSection role={role} />}
+        {tab === 'tickets' && (role === 'CUSTOMER' ? <CustomerPortal /> : <TicketsSection role={role} />)}
 
         {tab === 'articles' && <ArticlesPanel role={role} />}
         {tab === 'chat' && <ChatPanel token={token} tickets={tickets} />}
         {tab === 'metrics' && <MetricsPanel />}
         {tab === 'billing' && role === 'ADMIN' && <BillingPanel />}
+        {tab === 'users' && role === 'ADMIN' && <AdminPanel />}
 
         {/* ===================== PRUEBAS API ===================== */}
         {tab === 'tests' && (

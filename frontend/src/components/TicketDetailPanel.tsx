@@ -51,6 +51,12 @@ export default function TicketDetailPanel({ ticketId, role, onClose }: Props) {
   const busy =
     statusMutation.isPending || assignMutation.isPending || autoAssignMutation.isPending;
 
+  // Un CUSTOMER solo puede reabrir; ADMIN/AGENT pueden todo lo que permite la maquina de estados
+  const transitions =
+    role === 'CUSTOMER'
+      ? (TRANSITIONS[tk.status] ?? []).filter((s) => s === 'REOPENED')
+      : TRANSITIONS[tk.status] ?? [];
+
   const fmtDate = (value: string | null) =>
     value ? new Date(value).toLocaleString(i18n.language) : '—';
 
@@ -129,7 +135,7 @@ export default function TicketDetailPanel({ ticketId, role, onClose }: Props) {
 
       {/* Acciones */}
       <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
-        {(TRANSITIONS[tk.status] || []).map((next) => (
+        {transitions.map((next) => (
           <button
             key={next}
             disabled={busy}

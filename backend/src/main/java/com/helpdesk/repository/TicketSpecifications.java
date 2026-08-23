@@ -17,7 +17,8 @@ public final class TicketSpecifications {
     public static Specification<Ticket> withFilters(Long tenantId,
                                                     TicketStatus status,
                                                     TicketPriority priority,
-                                                    Long agentId) {
+                                                    Long agentId,
+                                                    Long customerId) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("tenant").get("id"), tenantId));
@@ -29,6 +30,9 @@ public final class TicketSpecifications {
             }
             if (agentId != null) {
                 predicates.add(cb.equal(root.get("agent").get("id"), agentId));
+            }
+            if (customerId != null) {
+                predicates.add(cb.equal(root.get("customer").get("id"), customerId));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

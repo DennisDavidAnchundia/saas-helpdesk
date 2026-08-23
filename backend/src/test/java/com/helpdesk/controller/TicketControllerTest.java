@@ -269,6 +269,50 @@ class TicketControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void customerSeesOnlyOwnTicketsInList() throws Exception {
+        Tenant tenant = createTenant("Portal Co");
+        User customer1 = createUser(tenant, "cli1@portal.com", Role.CUSTOMER);
+        User customer2 = createUser(tenant, "cli2@portal.com", Role.CUSTOMER);
+
+        createTicketAs(customer1, "Problema propio uno");
+        createTicketAs(customer1, "Problema propio dos");
+        createTicketAs(customer2, "Ticket de otro cliente");
+
+        mockMvc.perform(get("/api/tickets")
+                        .header("Authorization", "Bearer " + token(customer1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // El admin sigue viendo todo el tenant
+        User admin = createUser(tenant, "admin@portal.com", Role.ADMIN);
+        mockMvc.perform(get("/api/tickets")
+                        .header("Authorization", "Bearer " + token(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    void customerCannotFetchAnotherCustomersTicketById() throws Exception {
+        Tenant tenant = createTenant("Peek Co");
+        User customer1 = createUser(tenant, "cli1@peek.com", Role.CUSTOMER);
+        User customer2 = createUser(tenant, "cli2@peek.com", Role.CUSTOMER);
+
+        long ownId = createTicketAndGetId(customer1, "Mio y solo mio");
+        long otherId = createTicketAndGetId(customer2, "De otro cliente");
+
+        mockMvc.perform(get("/api/tickets/" + otherId)
+                        .header("Authorization", "Bearer " + token(customer1)))
+                .andExpect(status().isBadRequest());
+
+        // Su propio ticket si es visible
+        mockMvc.perform(get("/api/tickets/" + ownId)
+                        .header("Authorization", "Bearer " + token(customer1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Mio y solo mio"));
+    }
+
     // ---------- helpers ----------
 
     private Tenant createTenant(String name) {
