@@ -24,6 +24,19 @@ public class Tenant {
     @Column(nullable = false)
     private SubscriptionPlan subscriptionPlan = SubscriptionPlan.FREE;
 
+    // SLA de resolucion configurable (horas maximas por prioridad)
+    @Column(name = "sla_urgent_hours", nullable = false)
+    private int slaUrgentHours = 4;
+
+    @Column(name = "sla_high_hours", nullable = false)
+    private int slaHighHours = 8;
+
+    @Column(name = "sla_medium_hours", nullable = false)
+    private int slaMediumHours = 24;
+
+    @Column(name = "sla_low_hours", nullable = false)
+    private int slaLowHours = 72;
+
     @OneToMany(mappedBy = "tenant", cascade = CascadeType.ALL)
     private List<User> users = new ArrayList<>();
 
@@ -62,6 +75,18 @@ public class Tenant {
 
     public SubscriptionPlan getSubscriptionPlan() { return subscriptionPlan; }
     public void setSubscriptionPlan(SubscriptionPlan subscriptionPlan) { this.subscriptionPlan = subscriptionPlan; }
+
+    public int getSlaUrgentHours() { return slaUrgentHours; }
+    public void setSlaUrgentHours(int slaUrgentHours) { this.slaUrgentHours = slaUrgentHours; }
+
+    public int getSlaHighHours() { return slaHighHours; }
+    public void setSlaHighHours(int slaHighHours) { this.slaHighHours = slaHighHours; }
+
+    public int getSlaMediumHours() { return slaMediumHours; }
+    public void setSlaMediumHours(int slaMediumHours) { this.slaMediumHours = slaMediumHours; }
+
+    public int getSlaLowHours() { return slaLowHours; }
+    public void setSlaLowHours(int slaLowHours) { this.slaLowHours = slaLowHours; }
 
     public List<User> getUsers() { return users; }
     public void setUsers(List<User> users) { this.users = users; }

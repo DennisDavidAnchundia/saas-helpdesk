@@ -42,6 +42,25 @@ export interface AgentInfo {
   email: string;
 }
 
+export type UserRole = 'ADMIN' | 'AGENT' | 'CUSTOMER';
+
+export interface UserInfo {
+  id: number;
+  fullName: string;
+  email: string;
+  role: UserRole;
+  active: boolean;
+  provider?: string;
+  createdAt?: string;
+}
+
+export interface SlaPolicy {
+  urgentHours: number;
+  highHours: number;
+  mediumHours: number;
+  lowHours: number;
+}
+
 export interface Ticket {
   id: number;
   title: string;

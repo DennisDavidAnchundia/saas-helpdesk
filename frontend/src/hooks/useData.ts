@@ -4,15 +4,19 @@ import type {
   AgentInfo,
   Article,
   DashboardSummary,
+  SlaPolicy,
   Ticket,
   TicketPriority,
   TicketStatus,
+  UserInfo,
 } from '../services/api';
 
 export const queryKeys = {
   tickets: ['tickets'] as const,
   ticket: (id: number) => ['ticket', id] as const,
   agents: ['users', 'agents'] as const,
+  users: ['users', 'list'] as const,
+  slaPolicy: ['tenants', 'sla'] as const,
   articles: (q?: string) => ['articles', q ?? ''] as const,
   dashboardSummary: ['dashboard', 'summary'] as const,
 };
@@ -119,6 +123,58 @@ export function useAutoAssignAgent() {
       return data;
     },
     onSuccess: () => invalidateTicketQueries(qc),
+  });
+}
+
+// ===================== Admin: usuarios y SLA =====================
+
+export function useUsers(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.users,
+    queryFn: async () => {
+      const { data } = await apiClient.get<UserInfo[]>('/users');
+      return data;
+    },
+    enabled,
+  });
+}
+
+export function useSetUserActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      const { data } = await apiClient.patch<UserInfo>(`/users/${id}/active`, {
+        isActive,
+      });
+      return data;
+    },
+    // Al desactivar un agente cambia tanto el listado como los agentes asignables
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.users });
+      qc.invalidateQueries({ queryKey: queryKeys.agents });
+    },
+  });
+}
+
+export function useSlaPolicy(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.slaPolicy,
+    queryFn: async () => {
+      const { data } = await apiClient.get<SlaPolicy>('/tenants/sla');
+      return data;
+    },
+    enabled,
+  });
+}
+
+export function useUpdateSlaPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<SlaPolicy>) => {
+      const { data } = await apiClient.put<SlaPolicy>('/tenants/sla', payload);
+      return data;
+    },
+    onSuccess: (saved) => qc.setQueryData(queryKeys.slaPolicy, saved),
   });
 }
 

@@ -2,12 +2,13 @@ package com.helpdesk.controller;
 
 import com.helpdesk.config.JwtPrincipal;
 import com.helpdesk.dto.AgentResponse;
+import com.helpdesk.dto.UpdateUserActiveRequest;
+import com.helpdesk.dto.UserResponse;
 import com.helpdesk.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -21,9 +22,27 @@ public class UserController {
         this.userService = userService;
     }
 
+    /** Agentes activos del tenant (para selects de asignacion). */
     @GetMapping("/agents")
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     public List<AgentResponse> agents(@AuthenticationPrincipal JwtPrincipal principal) {
         return userService.listActiveAgents(principal.getTenantId());
+    }
+
+    /** Todos los usuarios del tenant (panel admin). */
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<UserResponse> users(@AuthenticationPrincipal JwtPrincipal principal) {
+        return userService.listUsers(principal.getTenantId());
+    }
+
+    /** Activar / desactivar un agente del tenant (panel admin). */
+    @PatchMapping("/{id}/active")
+    @PreAuthorize("hasRole('ADMIN')")
+    public UserResponse setActive(@PathVariable Long id,
+                                  @Valid @RequestBody UpdateUserActiveRequest request,
+                                  @AuthenticationPrincipal JwtPrincipal principal) {
+        return userService.setUserActive(
+                principal.getTenantId(), id, Boolean.TRUE.equals(request.getIsActive()));
     }
 }
