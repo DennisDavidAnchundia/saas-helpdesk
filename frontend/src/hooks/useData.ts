@@ -101,6 +101,38 @@ export function useDeleteArticle() {
   });
 }
 
+// ===================== Billing =====================
+
+export interface BillingInfo {
+  plan: 'FREE' | 'PRO' | 'ENTERPRISE';
+  status: string;
+  ticketsUsed: number;
+  ticketsLimit: number;
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+}
+
+export function useBillingMe() {
+  return useQuery({
+    queryKey: ['billing', 'me'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<BillingInfo>('/billing/me');
+      return data;
+    },
+  });
+}
+
+export function useCheckoutSession() {
+  return useMutation({
+    mutationFn: async (targetPlan: 'PRO' | 'ENTERPRISE') => {
+      const { data } = await apiClient.post<{ url: string }>('/billing/checkout-session', {
+        targetPlan,
+      });
+      return data;
+    },
+  });
+}
+
 // ===================== Dashboard =====================
 
 export function useDashboardSummary() {

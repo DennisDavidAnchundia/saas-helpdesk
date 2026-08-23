@@ -13,10 +13,12 @@ import {
   BookIcon,
   ChartIcon,
   ChatIcon,
+  CreditCardIcon,
   FlaskIcon,
   TicketIcon,
 } from '../components/icons';
 import ArticlesPanel from '../components/ArticlesPanel';
+import BillingPanel from '../components/BillingPanel';
 import ChatPanel from '../components/ChatPanel';
 import MetricsPanel from '../components/MetricsPanel';
 
@@ -28,7 +30,7 @@ interface Props {
   onLogout: () => void;
 }
 
-type Tab = 'tickets' | 'articles' | 'chat' | 'metrics' | 'tests';
+type Tab = 'tickets' | 'articles' | 'chat' | 'metrics' | 'billing' | 'tests';
 
 interface TestResult {
   endpoint: string;
@@ -82,6 +84,9 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
     { id: 'articles', label: t('nav.articles'), icon: <BookIcon /> },
     { id: 'chat', label: t('nav.chat'), icon: <ChatIcon /> },
     { id: 'metrics', label: t('nav.metrics'), icon: <ChartIcon /> },
+    ...(role === 'ADMIN'
+      ? [{ id: 'billing', label: t('nav.billing'), icon: <CreditCardIcon /> }]
+      : []),
     { id: 'tests', label: t('nav.tests'), icon: <FlaskIcon /> },
   ];
 
@@ -267,6 +272,7 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
         {tab === 'articles' && <ArticlesPanel role={role} />}
         {tab === 'chat' && <ChatPanel token={token} tickets={tickets} />}
         {tab === 'metrics' && <MetricsPanel />}
+        {tab === 'billing' && role === 'ADMIN' && <BillingPanel />}
 
         {/* ===================== PRUEBAS API ===================== */}
         {tab === 'tests' && (
