@@ -58,3 +58,11 @@ app:
     expiration: 86400000
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  price-pro: ${STRIPE_PRICE_PRO:price_1U7P29CMRatg0MMayjxI42nc}
+  price-enterprise: ${STRIPE_PRICE_ENTERPRISE:price_1U7P29CMRatg0MMaHbG06N87}
+  success-url: ${STRIPE_SUCCESS_URL:http://localhost:5173/billing/success}
+  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:5173/}
