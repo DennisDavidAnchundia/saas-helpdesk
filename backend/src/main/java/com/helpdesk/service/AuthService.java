@@ -1,6 +1,7 @@
 package com.helpdesk.service;
 
 import com.helpdesk.config.JwtProvider;
+import com.helpdesk.dto.JoinRequest;
 import com.helpdesk.dto.LoginRequest;
 import com.helpdesk.dto.LoginResponse;
 import com.helpdesk.dto.RegisterRequest;
@@ -66,6 +67,40 @@ public class AuthService {
                 tenant.getId(),
                 tenant.getName(),
                 slug,
+                user.getCreatedAt()
+        );
+    }
+
+    /**
+     * Registro publico como CUSTOMER de una empresa existente (portal de clientes).
+     * El rol se fuerza a CUSTOMER en el servidor.
+     */
+    @Transactional
+    public RegisterResponse join(JoinRequest request) {
+        Tenant tenant = tenantRepository.findBySlug(request.getTenantSlug())
+                .orElseThrow(() -> new IllegalArgumentException("No existe una empresa con ese slug"));
+
+        if (userRepository.existsByTenantIdAndEmail(tenant.getId(), request.getEmail())) {
+            throw new IllegalArgumentException("Ya existe una cuenta con ese email en la empresa");
+        }
+
+        User user = new User(
+                tenant,
+                request.getEmail(),
+                passwordEncoder.encode(request.getPassword()),
+                request.getFullName(),
+                Role.CUSTOMER
+        );
+        user = userRepository.save(user);
+
+        return new RegisterResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getRole().name(),
+                tenant.getId(),
+                tenant.getName(),
+                tenant.getSlug(),
                 user.getCreatedAt()
         );
     }

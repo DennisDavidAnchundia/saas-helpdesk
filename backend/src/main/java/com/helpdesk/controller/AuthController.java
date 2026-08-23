@@ -1,5 +1,6 @@
 package com.helpdesk.controller;
 
+import com.helpdesk.dto.JoinRequest;
 import com.helpdesk.dto.LoginRequest;
 import com.helpdesk.dto.LoginResponse;
 import com.helpdesk.dto.RegisterRequest;
@@ -23,6 +24,13 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
         RegisterResponse response = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /** Registro publico como cliente de una empresa existente. */
+    @PostMapping("/join")
+    public ResponseEntity<RegisterResponse> join(@Valid @RequestBody JoinRequest request) {
+        RegisterResponse response = authService.join(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

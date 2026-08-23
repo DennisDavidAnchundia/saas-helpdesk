@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import JoinPage from './pages/JoinPage';
 import DashboardPage from './pages/DashboardPage';
 
 export interface AuthState {
@@ -105,6 +106,7 @@ function App() {
           }
         />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/join" element={<JoinPage />} />
         <Route
           path="/auth/callback"
           element={auth ? <Navigate to="/" replace /> : <OAuthCallback onSuccess={handleLoginSuccess} />}

@@ -135,6 +135,35 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
   return res.json();
 }
 
+export interface JoinRequest {
+  fullName: string;
+  email: string;
+  password: string;
+  tenantSlug: string;
+}
+
+export interface JoinResponse {
+  userId: number;
+  email: string;
+  fullName: string;
+  role: string;
+  tenantName: string;
+  tenantSlug: string;
+}
+
+export async function join(data: JoinRequest): Promise<JoinResponse> {
+  const res = await fetch(`${API}/api/auth/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(err.message || 'Error al unirse');
+  }
+  return res.json();
+}
+
 export async function login(data: LoginRequest): Promise<AuthResponse> {
   const res = await fetch(`${API}/api/auth/login`, {
     method: 'POST',

@@ -181,4 +181,84 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isBadRequest());
     }
+
+    // ---------- join (registro de clientes en empresa existente) ----------
+
+    private void seedTenantWithAdmin(String name, String slug, String adminEmail) {
+        com.helpdesk.model.Tenant tenant = tenantRepository.save(new com.helpdesk.model.Tenant(name, slug));
+        userRepository.save(new com.helpdesk.model.User(
+                tenant, adminEmail, passwordEncoder.encode("password123"), "Dennis", com.helpdesk.model.enums.Role.ADMIN));
+    }
+
+    @Test
+    void joinCreatesCustomerInExistingTenant() throws Exception {
+        seedTenantWithAdmin("Empresa Join", "empresa-join", "admin@join.com");
+
+        com.helpdesk.dto.JoinRequest request = new com.helpdesk.dto.JoinRequest(
+                "Carla Cliente", "carla@join.com", "password123", "empresa-join");
+
+        mockMvc.perform(post("/api/auth/join")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role").value("CUSTOMER"))
+                .andExpect(jsonPath("$.email").value("carla@join.com"))
+                .andExpect(jsonPath("$.tenantSlug").value("empresa-join"))
+                .andExpect(jsonPath("$.userId").isNumber());
+
+        // El cliente recien creado puede loguear contra esa empresa
+        LoginRequest loginRequest = new LoginRequest("carla@join.com", "password123", "empresa-join");
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("CUSTOMER"));
+    }
+
+    @Test
+    void joinWithUnknownTenantSlugIsRejected() throws Exception {
+        com.helpdesk.dto.JoinRequest request = new com.helpdesk.dto.JoinRequest(
+                "Alguien", "alguien@nowhere.com", "password123", "no-existe");
+
+        mockMvc.perform(post("/api/auth/join")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void joinWithDuplicateEmailInTenantIsRejected() throws Exception {
+        seedTenantWithAdmin("Empresa Dup Join", "dup-join", "admin@dupjoin.com");
+
+        com.helpdesk.dto.JoinRequest request = new com.helpdesk.dto.JoinRequest(
+                "Impostor", "admin@dupjoin.com", "password123", "dup-join");
+
+        mockMvc.perform(post("/api/auth/join")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void joinValidatesPayload() throws Exception {
+        seedTenantWithAdmin("Validate Join Co", "validate-join", "admin@vj.com");
+
+        // Contraseña corta
+        mockMvc.perform(post("/api/auth/join")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Corto\",\"email\":\"corto@vj.com\",\"password\":\"123\",\"tenantSlug\":\"validate-join\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Email invalido
+        mockMvc.perform(post("/api/auth/join")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Malo\",\"email\":\"no-email\",\"password\":\"password123\",\"tenantSlug\":\"validate-join\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Slug vacio
+        mockMvc.perform(post("/api/auth/join")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Vacio\",\"email\":\"vacio@vj.com\",\"password\":\"password123\",\"tenantSlug\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
 }

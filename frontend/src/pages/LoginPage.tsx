@@ -129,6 +129,16 @@ export default function LoginPage({ onSuccess }: Props) {
           {t('auth.registerFree')}
         </Link>
       </p>
+
+      <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">
+        {t('auth.areYouCustomer')}{' '}
+        <Link
+          to="/join"
+          className="font-semibold text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
+        >
+          {t('auth.joinCompany')}
+        </Link>
+      </p>
     </AuthLayout>
   );
 }
