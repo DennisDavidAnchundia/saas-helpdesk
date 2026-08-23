@@ -1,5 +1,21 @@
 import { useEffect, useState } from 'react';
-import { testEndpoint, listTickets, createTicket, changeTicketStatus, type Ticket, type TicketPriority, type TicketStatus } from '../services/api';
+import {
+  testEndpoint,
+  listTickets,
+  createTicket,
+  changeTicketStatus,
+  type Ticket,
+  type TicketPriority,
+  type TicketStatus,
+} from '../services/api';
+import AppLayout, { type NavItem } from '../components/layout/AppLayout';
+import {
+  BookIcon,
+  ChartIcon,
+  ChatIcon,
+  FlaskIcon,
+  TicketIcon,
+} from '../components/icons';
 import ArticlesPanel from '../components/ArticlesPanel';
 import ChatPanel from '../components/ChatPanel';
 import MetricsPanel from '../components/MetricsPanel';
@@ -20,6 +36,14 @@ interface TestResult {
   body: any;
 }
 
+const NAV_ITEMS: NavItem[] = [
+  { id: 'tickets', label: 'Tickets', icon: <TicketIcon /> },
+  { id: 'articles', label: 'Base de Conocimiento', icon: <BookIcon /> },
+  { id: 'chat', label: 'Chat en Vivo', icon: <ChatIcon /> },
+  { id: 'metrics', label: 'Métricas', icon: <ChartIcon /> },
+  { id: 'tests', label: 'Pruebas API', icon: <FlaskIcon /> },
+];
+
 const ENDPOINTS = [
   { path: '/api/test/admin', label: 'Admin Only', expected: 'ADMIN' },
   { path: '/api/test/agent', label: 'Agent Only', expected: 'AGENT' },
@@ -36,18 +60,18 @@ const TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
 };
 
 const STATUS_STYLES: Record<TicketStatus, string> = {
-  OPEN: 'bg-blue-100 text-blue-700',
-  IN_PROGRESS: 'bg-amber-100 text-amber-700',
-  RESOLVED: 'bg-green-100 text-green-700',
-  CLOSED: 'bg-slate-200 text-slate-600',
-  REOPENED: 'bg-purple-100 text-purple-700',
+  OPEN: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+  IN_PROGRESS: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  RESOLVED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+  CLOSED: 'bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-400',
+  REOPENED: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
 };
 
 const PRIORITY_STYLES: Record<TicketPriority, string> = {
-  LOW: 'bg-slate-100 text-slate-600',
-  MEDIUM: 'bg-yellow-100 text-yellow-700',
-  HIGH: 'bg-orange-100 text-orange-700',
-  URGENT: 'bg-red-100 text-red-700',
+  LOW: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-400',
+  MEDIUM: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300',
+  HIGH: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
+  URGENT: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
 };
 
 export default function DashboardPage({ email, role, tenantName, token, onLogout }: Props) {
@@ -76,6 +100,12 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
     loadTickets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Badge con la cantidad de tickets abiertos
+  const openCount = tickets.filter((t) => t.status === 'OPEN' || t.status === 'REOPENED').length;
+  const navItems = NAV_ITEMS.map((item) =>
+    item.id === 'tickets' && openCount > 0 ? { ...item, badge: String(openCount) } : item,
+  );
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,232 +155,203 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
   };
 
   const statusColor = (code: number) => {
-    if (code === 200) return 'text-green-600 bg-green-50 border-green-200';
-    if (code === 403) return 'text-amber-600 bg-amber-50 border-amber-200';
-    if (code === 401) return 'text-red-600 bg-red-50 border-red-200';
-    return 'text-slate-600 bg-slate-50 border-slate-200';
+    if (code === 200) return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300';
+    if (code === 403) return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300';
+    if (code === 401) return 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300';
+    return 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-400';
   };
 
+  const errorBox =
+    'animate-fade-up rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300';
+
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-            <p className="text-slate-500 text-sm">SaaS Help Desk</p>
-          </div>
-          <button
-            onClick={onLogout}
-            className="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-          >
-            Cerrar sesion
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['tickets', 'Tickets'],
-              ['articles', 'Base de Conocimiento'],
-              ['chat', 'Chat'],
-              ['metrics', 'Métricas'],
-              ['tests', 'Pruebas API'],
-            ] as [Tab, string][]
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                tab === key
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
+    <AppLayout
+      items={navItems}
+      activeId={tab}
+      onNavigate={(id) => setTab(id as Tab)}
+      user={{ email, role, tenantName }}
+      onLogout={onLogout}
+    >
+      <div className="animate-fade-up space-y-6">
+        {/* ===================== TICKETS ===================== */}
         {tab === 'tickets' && (
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">Tickets ({tickets.length})</h2>
-
-          <form onSubmit={handleCreateTicket} className="space-y-3 mb-6">
-            <input
-              type="text"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Titulo del ticket"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-              required
-              maxLength={255}
-            />
-            <textarea
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-              placeholder="Descripcion del problema"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-              rows={2}
-              required
-            />
-            <div className="flex gap-3 items-center">
-              <select
-                value={newPriority}
-                onChange={(e) => setNewPriority(e.target.value as TicketPriority)}
-                className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-              >
-                <option value="LOW">LOW</option>
-                <option value="MEDIUM">MEDIUM</option>
-                <option value="HIGH">HIGH</option>
-                <option value="URGENT">URGENT</option>
-              </select>
-              <button
-                type="submit"
-                disabled={creating}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {creating ? 'Creando...' : '+ Crear ticket'}
-              </button>
-            </div>
-          </form>
-
-          {actionError && (
-            <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200 mb-4">
-              {actionError}
-            </div>
-          )}
-          {ticketsError && (
-            <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200 mb-4">
-              {ticketsError}
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {tickets.map((t) => (
-              <div key={t.id} className="border border-slate-200 rounded-lg p-4">
-                <div className="flex flex-wrap items-center gap-2 justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-slate-800 text-sm">#{t.id}</span>
-                    <span className="text-sm font-medium text-slate-800">{t.title}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[t.status]}`}>
-                      {t.status}
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_STYLES[t.priority]}`}>
-                      {t.priority}
-                    </span>
-                    {t.slaBreached && (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-red-600 text-white animate-pulse">
-                        SLA VENCIDO
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-1.5">
-                    {(TRANSITIONS[t.status] || []).map((next) => (
-                      <button
-                        key={next}
-                        onClick={() => handleStatusChange(t.id, next)}
-                        className="text-xs px-2.5 py-1 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
-                      >
-                        {next}
-                      </button>
-                    ))}
-                  </div>
+          <>
+            {/* Formulario de creación */}
+            <section className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6 dark:border-white/10 dark:bg-white/[0.03]">
+              <h2 className="mb-4 font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
+                Nuevo ticket
+              </h2>
+              <form onSubmit={handleCreateTicket} className="space-y-3">
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Título del ticket"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  required
+                  maxLength={255}
+                />
+                <textarea
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  placeholder="Descripción del problema"
+                  className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  rows={2}
+                  required
+                />
+                <div className="flex items-center gap-3">
+                  <select
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value as TicketPriority)}
+                    className="cursor-pointer rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  >
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="URGENT">URGENT</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                  >
+                    {creating ? 'Creando…' : '+ Crear ticket'}
+                  </button>
                 </div>
-                <p className="text-xs text-slate-500 mt-2">{t.description}</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Cliente: {t.customerName}
-                  {' · '}Agente: {t.agentName || 'sin asignar'}
-                  {t.slaDueAt && ` · SLA vence: ${new Date(t.slaDueAt).toLocaleString('es')}`}
-                  {t.firstResponseAt && ` · 1ra respuesta: ${new Date(t.firstResponseAt).toLocaleTimeString('es')}`}
+              </form>
+
+              {(actionError || ticketsError) && (
+                <div className={`${errorBox} mt-4`}>
+                  {actionError || ticketsError}
+                </div>
+              )}
+            </section>
+
+            {/* Lista de tickets */}
+            <section className="space-y-3">
+              <h2 className="font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
+                Tickets ({tickets.length})
+              </h2>
+              {tickets.map((t) => (
+                <article
+                  key={t.id}
+                  className="group rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-500/5 sm:p-5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-500/40"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs font-semibold text-brand-500 dark:text-brand-400">
+                        #{t.id}
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                        {t.title}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLES[t.status]}`}>
+                        {t.status}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_STYLES[t.priority]}`}>
+                        {t.priority}
+                      </span>
+                      {t.slaBreached && (
+                        <span className="animate-pulse-dot rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white">
+                          SLA VENCIDO
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5">
+                      {(TRANSITIONS[t.status] || []).map((next) => (
+                        <button
+                          key={next}
+                          onClick={() => handleStatusChange(t.id, next)}
+                          className="cursor-pointer rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
+                        >
+                          {next}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{t.description}</p>
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    Cliente: {t.customerName}
+                    {' · '}Agente: {t.agentName || 'sin asignar'}
+                    {t.slaDueAt && ` · SLA vence: ${new Date(t.slaDueAt).toLocaleString('es')}`}
+                    {t.firstResponseAt && ` · 1ra respuesta: ${new Date(t.firstResponseAt).toLocaleTimeString('es')}`}
+                  </p>
+                </article>
+              ))}
+              {tickets.length === 0 && !ticketsError && (
+                <p className="py-8 text-center text-sm text-slate-400">
+                  No hay tickets todavía. Crea el primero arriba.
                 </p>
-              </div>
-            ))}
-            {tickets.length === 0 && !ticketsError && (
-              <p className="text-sm text-slate-400 text-center py-4">
-                No hay tickets todavia. Crea el primero arriba.
-              </p>
-            )}
-          </div>
-        </div>
+              )}
+            </section>
+          </>
         )}
 
         {tab === 'articles' && <ArticlesPanel token={token} role={role} />}
         {tab === 'chat' && <ChatPanel token={token} tickets={tickets} />}
         {tab === 'metrics' && <MetricsPanel token={token} />}
 
-        {/* User Info Card */}
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">Informacion del Usuario</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <InfoRow label="Email" value={email} />
-            <InfoRow label="Rol" value={role} />
-            <InfoRow label="Empresa" value={tenantName} />
-          </div>
-          <div className="mt-4">
-            <label className="block text-xs font-medium text-slate-400 mb-1">Token JWT (truncado)</label>
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs font-mono text-slate-600 break-all">
-              {token.substring(0, 50)}...{token.substring(token.length - 20)}
-            </div>
-          </div>
-        </div>
-
-        {/* Test Panel */}
+        {/* ===================== PRUEBAS API ===================== */}
         {tab === 'tests' && (
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-800">Panel de Pruebas - Acceso por Roles</h2>
-            <button
-              onClick={runAllTests}
-              disabled={testing}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {testing ? 'Probando...' : 'Probar Todos'}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {ENDPOINTS.map((ep) => (
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
+                  Acceso por roles
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Verifica qué endpoints responde tu rol · Sesión: {email} ({role}) · {tenantName}
+                </p>
+              </div>
               <button
-                key={ep.path}
-                onClick={() => runSingleTest(ep.path, ep.label)}
+                onClick={runAllTests}
                 disabled={testing}
-                className="px-3 py-2 text-sm font-medium border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60"
               >
-                {ep.label}
+                {testing ? 'Probando…' : 'Probar todos'}
               </button>
-            ))}
-          </div>
+            </div>
 
-          {results.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-slate-400">Resultados:</h3>
-              {results.map((r, i) => (
-                <div key={i} className={`border rounded-lg p-4 ${statusColor(r.status)}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-sm font-semibold">{r.endpoint}</span>
-                    <span className="text-lg font-bold">{r.status}</span>
-                  </div>
-                  <pre className="text-xs font-mono opacity-75 overflow-auto max-h-32">
-                    {JSON.stringify(r.body, null, 2)}
-                  </pre>
-                </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {ENDPOINTS.map((ep) => (
+                <button
+                  key={ep.path}
+                  onClick={() => runSingleTest(ep.path, ep.label)}
+                  disabled={testing}
+                  className="cursor-pointer rounded-xl border border-slate-200/70 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
+                >
+                  {ep.label}
+                </button>
               ))}
             </div>
-          )}
-        </div>
+
+            {results.length > 0 && (
+              <div className="space-y-3">
+                {results.map((r, i) => (
+                  <div key={i} className={`animate-fade-up rounded-2xl border p-4 ${statusColor(r.status)}`}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="font-mono text-sm font-semibold">{r.endpoint}</span>
+                      <span className="font-display text-lg font-bold">{r.status}</span>
+                    </div>
+                    <pre className="max-h-32 overflow-auto font-mono text-xs opacity-75">
+                      {JSON.stringify(r.body, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <details className="rounded-2xl border border-slate-200/70 bg-white p-4 text-sm shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+              <summary className="cursor-pointer font-medium text-slate-500 dark:text-slate-400">
+                Token JWT (debug)
+              </summary>
+              <p className="mt-3 break-all font-mono text-xs text-slate-500 dark:text-slate-500">
+                {token.substring(0, 50)}…{token.substring(token.length - 20)}
+              </p>
+            </details>
+          </section>
         )}
       </div>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <span className="text-xs font-medium text-slate-400">{label}</span>
-      <p className="text-sm font-semibold text-slate-700">{value}</p>
-    </div>
+    </AppLayout>
   );
 }

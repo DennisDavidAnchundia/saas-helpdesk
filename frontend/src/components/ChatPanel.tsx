@@ -130,20 +130,26 @@ export default function ChatPanel({ token, tickets }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6">
-      <div className="flex flex-wrap items-center gap-3 justify-between mb-4">
-        <h2 className="text-lg font-semibold text-slate-800">Chat del Ticket</h2>
+    <div className="animate-fade-up rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
+          Chat del ticket
+        </h2>
         <div className="flex items-center gap-2 text-xs">
-          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className={connected ? 'text-green-600' : 'text-red-500'}>
+          <span
+            className={`size-2 rounded-full ${
+              connected ? 'animate-pulse-dot bg-emerald-500' : 'bg-red-500'
+            }`}
+          />
+          <span className={connected ? 'font-medium text-emerald-600 dark:text-emerald-400' : 'font-medium text-red-500'}>
             {connected ? 'Conectado' : 'Desconectado'}
           </span>
-          <span className="text-slate-400">· En linea: {onlineIds.length}</span>
+          <span className="text-slate-400">· En línea: {onlineIds.length}</span>
         </div>
       </div>
 
       {tickets.length === 0 ? (
-        <p className="text-sm text-slate-400 text-center py-6">
+        <p className="py-8 text-center text-sm text-slate-400">
           Crea un ticket primero para poder chatear.
         </p>
       ) : (
@@ -151,7 +157,7 @@ export default function ChatPanel({ token, tickets }: Props) {
           <select
             value={selectedId ?? ''}
             onChange={(e) => setSelectedId(Number(e.target.value))}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white mb-4"
+            className="mb-4 w-full cursor-pointer rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition-shadow focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
             {tickets.map((t) => (
               <option key={t.id} value={t.id}>
@@ -161,28 +167,30 @@ export default function ChatPanel({ token, tickets }: Props) {
           </select>
 
           {error && (
-            <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200 mb-3">
+            <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
               {error}
             </div>
           )}
 
-          <div className="h-72 overflow-y-auto border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
+          <div className="h-80 space-y-2 overflow-y-auto rounded-xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-black/20">
             {messages.map((m) => {
               const mine = m.senderId === userId;
               return (
                 <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${
+                    className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
                       mine
-                        ? 'bg-blue-600 text-white rounded-br-sm'
-                        : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm'
+                        ? 'rounded-br-md bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-brand-500/25'
+                        : 'rounded-bl-md border border-slate-200/70 bg-white text-slate-800 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-100'
                     }`}
                   >
                     {!mine && (
-                      <p className="text-xs font-semibold text-indigo-600 mb-0.5">{m.senderName}</p>
+                      <p className="mb-0.5 text-xs font-semibold text-brand-500 dark:text-brand-300">
+                        {m.senderName}
+                      </p>
                     )}
                     <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                    <p className={`text-[10px] mt-1 ${mine ? 'text-blue-200' : 'text-slate-400'}`}>
+                    <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-slate-400'}`}>
                       {new Date(m.sentAt).toLocaleTimeString('es')}
                     </p>
                   </div>
@@ -190,24 +198,24 @@ export default function ChatPanel({ token, tickets }: Props) {
               );
             })}
             {messages.length === 0 && (
-              <p className="text-xs text-slate-400 text-center py-8">Sin mensajes todavia.</p>
+              <p className="py-10 text-center text-xs text-slate-400">Sin mensajes todavía.</p>
             )}
             <div ref={endRef} />
           </div>
 
-          <form onSubmit={handleSend} className="flex gap-2 mt-3">
+          <form onSubmit={handleSend} className="mt-3 flex gap-2">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={connected ? 'Escribe un mensaje...' : 'Esperando conexion...'}
+              placeholder={connected ? 'Escribe un mensaje…' : 'Esperando conexión…'}
               disabled={!connected}
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm disabled:bg-slate-100"
+              className="flex-1 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:disabled:bg-white/[0.02]"
             />
             <button
               type="submit"
               disabled={!connected || !input.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               Enviar
             </button>
