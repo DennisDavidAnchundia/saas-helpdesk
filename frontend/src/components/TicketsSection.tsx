@@ -9,9 +9,11 @@ const PAGE_SIZE = 5;
 
 interface Props {
   role: string;
+  /** Salta al chat del ticket indicado (lo provee DashboardPage) */
+  onOpenChat?: (ticketId: number) => void;
 }
 
-export default function TicketsSection({ role }: Props) {
+export default function TicketsSection({ role, onOpenChat }: Props) {
   const { t } = useTranslation();
   const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>('');
   const [priorityFilter, setPriorityFilter] = useState<TicketPriority | ''>('');
@@ -147,6 +149,7 @@ export default function TicketsSection({ role }: Props) {
           ticketId={selectedId}
           role={role}
           onClose={() => setSelectedId(null)}
+          onOpenChat={onOpenChat}
         />
       )}
 

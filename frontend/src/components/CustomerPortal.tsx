@@ -8,7 +8,7 @@ import { PRIORITY_STYLES, STATUS_STYLES } from './ticketUi';
 const ALL_PRIORITIES: TicketPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
 /** Portal simplificado para CUSTOMER: crea tickets y ve solo los suyos. */
-export default function CustomerPortal() {
+export default function CustomerPortal({ onOpenChat }: { onOpenChat?: (ticketId: number) => void }) {
   const { t } = useTranslation();
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -98,6 +98,7 @@ export default function CustomerPortal() {
           ticketId={selectedId}
           role="CUSTOMER"
           onClose={() => setSelectedId(null)}
+          onOpenChat={onOpenChat}
         />
       )}
 

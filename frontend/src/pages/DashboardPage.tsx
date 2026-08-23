@@ -42,6 +42,13 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
   const [tab, setTab] = useState<Tab>('tickets');
   const [results, setResults] = useState<TestResult[]>([]);
   const [testing, setTesting] = useState(false);
+  // Ticket que se quiere ver en el chat (viene del boton "Abrir chat" del detalle)
+  const [chatFocusId, setChatFocusId] = useState<number | null>(null);
+
+  const handleOpenChat = (ticketId: number) => {
+    setChatFocusId(ticketId);
+    setTab('chat');
+  };
 
   // Lista sin filtros para el selector de chat y el badge del sidebar
   const ticketsQuery = useTickets();
@@ -118,10 +125,10 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
     >
       <div className="animate-fade-up space-y-6">
         {/* ===================== TICKETS ===================== */}
-        {tab === 'tickets' && (role === 'CUSTOMER' ? <CustomerPortal /> : <TicketsSection role={role} />)}
+        {tab === 'tickets' && (role === 'CUSTOMER' ? <CustomerPortal onOpenChat={handleOpenChat} /> : <TicketsSection role={role} onOpenChat={handleOpenChat} />)}
 
         {tab === 'articles' && <ArticlesPanel role={role} />}
-        {tab === 'chat' && <ChatPanel token={token} tickets={tickets} />}
+        {tab === 'chat' && <ChatPanel token={token} tickets={tickets} focusTicketId={chatFocusId} />}
         {tab === 'metrics' && <MetricsPanel />}
         {tab === 'billing' && role === 'ADMIN' && <BillingPanel />}
         {tab === 'users' && role === 'ADMIN' && <AdminPanel />}

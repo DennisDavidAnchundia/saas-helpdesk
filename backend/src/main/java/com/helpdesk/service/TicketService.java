@@ -60,16 +60,35 @@ public class TicketService {
         return TicketResponse.from(saved);
     }
 
+    /**
+     * Asignacion manual. Reglas: el ADMIN puede asignar cualquier ticket a
+     * cualquier agente; un AGENTE solo puede tomar tickets para si mismo.
+     */
     @Transactional
-    public TicketResponse assign(Long tenantId, Long ticketId, Long agentId) {
+    public TicketResponse assign(Long tenantId, Long ticketId, Long agentId, String role, Long requesterId) {
+        if ("AGENT".equals(role) && !agentId.equals(requesterId)) {
+            throw new IllegalArgumentException(
+                    "Un agente solo puede tomarse tickets para si; reasignar a otros es del admin");
+        }
         Ticket ticket = getEntity(tenantId, ticketId);
         User agent = getActiveAgent(tenantId, agentId);
         ticket.setAgent(agent);
         return TicketResponse.from(ticketRepository.save(ticket));
     }
 
+    /**
+     * Auto-asignacion: para el ADMIN reparte al agente menos cargado
+     * (balanceo); para un AGENTE significa "me tomo este ticket".
+     */
     @Transactional
-    public TicketResponse autoAssign(Long tenantId, Long ticketId) {
+    public TicketResponse autoAssign(Long tenantId, Long ticketId, String role, Long requesterId) {
+        Ticket ticket = getEntity(tenantId, ticketId);
+
+        if ("AGENT".equals(role)) {
+            ticket.setAgent(getActiveAgent(tenantId, requesterId));
+            return TicketResponse.from(ticketRepository.save(ticket));
+        }
+
         List<User> agents = userRepository.findActiveAgentsByTenant(tenantId);
         if (agents.isEmpty()) {
             throw new IllegalArgumentException("No hay agentes activos en esta empresa");
@@ -84,7 +103,6 @@ public class TicketService {
                                         TicketStatus.REOPENED))))
                 .orElseThrow();
 
-        Ticket ticket = getEntity(tenantId, ticketId);
         ticket.setAgent(selected);
         return TicketResponse.from(ticketRepository.save(ticket));
     }

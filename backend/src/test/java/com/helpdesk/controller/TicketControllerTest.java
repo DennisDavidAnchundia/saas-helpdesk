@@ -201,6 +201,49 @@ class TicketControllerTest {
     }
 
     @Test
+    void agentCannotAssignOtherAgents() throws Exception {
+        Tenant tenant = createTenant("Self Only Co");
+        User agent1 = createUser(tenant, "agent1@selfonly.com", Role.AGENT);
+        User agent2 = createUser(tenant, "agent2@selfonly.com", Role.AGENT);
+
+        long ticketId = createTicketAndGetId(agent1, "Para quien caiga");
+
+        // Un AGENTE no puede reasignar a otro agente
+        mockMvc.perform(patch("/api/tickets/" + ticketId + "/assign/" + agent2.getId())
+                        .header("Authorization", "Bearer " + token(agent1)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void agentCanTakeTicketForItself() throws Exception {
+        Tenant tenant = createTenant("Take It Co");
+        User agent = createUser(tenant, "agent@takeit.com", Role.AGENT);
+
+        long ticketId = createTicketAndGetId(agent, "Libre");
+
+        mockMvc.perform(patch("/api/tickets/" + ticketId + "/assign/" + agent.getId())
+                        .header("Authorization", "Bearer " + token(agent)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.agentId").value(agent.getId()))
+                .andExpect(jsonPath("$.agentName").value("agent"));
+    }
+
+    @Test
+    void agentAutoAssignTakesTheTicketForItself() throws Exception {
+        Tenant tenant = createTenant("Take RR Co");
+        User agent1 = createUser(tenant, "agent1@takerr.com", Role.AGENT);
+        createUser(tenant, "agent2@takerr.com", Role.AGENT);
+
+        long ticketId = createTicketAndGetId(agent1, "Sin dueno");
+
+        // Aunque agent2 este menos cargado, el auto-asignar de un AGENTE se lo lleva el mismo
+        mockMvc.perform(patch("/api/tickets/" + ticketId + "/assign")
+                        .header("Authorization", "Bearer " + token(agent1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.agentId").value(agent1.getId()));
+    }
+
+    @Test
     void autoAssignDistributesEvenlyBetweenTwoAgents() throws Exception {
         Tenant tenant = createTenant("Round Robin Co");
         User admin = createUser(tenant, "admin@rr.com", Role.ADMIN);

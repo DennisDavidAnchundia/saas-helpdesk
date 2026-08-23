@@ -84,14 +84,15 @@ public class TicketController {
     public TicketResponse assign(@PathVariable Long id,
                                  @PathVariable Long agentId,
                                  @AuthenticationPrincipal JwtPrincipal principal) {
-        return ticketService.assign(principal.getTenantId(), id, agentId);
+        return ticketService.assign(
+                principal.getTenantId(), id, agentId, principal.getRole(), principal.getUserId());
     }
 
     @PatchMapping("/{id}/assign")
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     public TicketResponse autoAssign(@PathVariable Long id,
                                      @AuthenticationPrincipal JwtPrincipal principal) {
-        return ticketService.autoAssign(principal.getTenantId(), id);
+        return ticketService.autoAssign(principal.getTenantId(), id, principal.getRole(), principal.getUserId());
     }
 
     @GetMapping("/{id}/messages")

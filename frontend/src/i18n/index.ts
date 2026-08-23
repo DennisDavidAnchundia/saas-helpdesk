@@ -87,6 +87,9 @@ const resources = {
         noAgents: 'Sin agentes activos para asignar.',
         loadingAgents: 'Cargando agentes…',
         agentsError: 'No se pudieron cargar los agentes',
+        takeTicket: 'Tomar este ticket',
+        takeTicketHint: 'El ticket queda asignado a ti',
+        openChat: 'Abrir chat',
       },
       articles: {
         title: 'Base de Conocimiento',
@@ -295,6 +298,9 @@ const resources = {
         noAgents: 'No active agents to assign.',
         loadingAgents: 'Loading agents…',
         agentsError: 'Could not load agents',
+        takeTicket: 'Take this ticket',
+        takeTicketHint: 'The ticket becomes yours',
+        openChat: 'Open chat',
       },
       articles: {
         title: 'Knowledge Base',

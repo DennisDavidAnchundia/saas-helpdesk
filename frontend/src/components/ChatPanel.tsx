@@ -7,6 +7,8 @@ import { getMessages, getPresence, type ChatMessage, type Ticket } from '../serv
 interface Props {
   token: string;
   tickets: Ticket[];
+  /** Ticket a mostrar al llegar desde el boton "Abrir chat" del detalle */
+  focusTicketId?: number | null;
 }
 
 function decodeJwt(token: string): { tenantId?: number; userId?: number } {
@@ -17,7 +19,7 @@ function decodeJwt(token: string): { tenantId?: number; userId?: number } {
   }
 }
 
-export default function ChatPanel({ token, tickets }: Props) {
+export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
   const { t, i18n } = useTranslation();
   const payload = decodeJwt(token);
   const tenantId = payload.tenantId;
@@ -38,6 +40,11 @@ export default function ChatPanel({ token, tickets }: Props) {
   useEffect(() => {
     selectedRef.current = selectedId;
   }, [selectedId]);
+
+  // Si llegamos desde el detalle de un ticket, seleccionamos esa conversacion
+  useEffect(() => {
+    if (focusTicketId != null) setSelectedId(focusTicketId);
+  }, [focusTicketId]);
 
   useEffect(() => {
     if (!selectedId) return;

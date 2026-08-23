@@ -7,15 +7,18 @@ import {
   useChangeTicketStatus,
   useTicket,
 } from '../hooks/useData';
+import { ChatIcon } from './icons';
 import { PRIORITY_STYLES, STATUS_STYLES, TRANSITIONS } from './ticketUi';
 
 interface Props {
   ticketId: number;
   role: string;
   onClose: () => void;
+  /** Si viene, muestra el boton que salta al chat de este ticket */
+  onOpenChat?: (ticketId: number) => void;
 }
 
-export default function TicketDetailPanel({ ticketId, role, onClose }: Props) {
+export default function TicketDetailPanel({ ticketId, role, onClose, onOpenChat }: Props) {
   const { t, i18n } = useTranslation();
   const [selectedAgent, setSelectedAgent] = useState('');
   const ticketQuery = useTicket(ticketId);
@@ -148,7 +151,11 @@ export default function TicketDetailPanel({ ticketId, role, onClose }: Props) {
 
         {canManage && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {agentsQuery.isLoading ? (
+            {/*
+              Regla de asignacion: solo el ADMIN reparte tickets entre agentes;
+              un AGENTE se toma los suyos con auto-asignar (el backend lo fuerza)
+            */}
+            {role === 'ADMIN' && (agentsQuery.isLoading ? (
               <span className="text-xs text-slate-400">{t('tickets.loadingAgents')}</span>
             ) : agentsQuery.error ? (
               <span className="text-xs font-medium text-red-600 dark:text-red-400">
@@ -179,15 +186,29 @@ export default function TicketDetailPanel({ ticketId, role, onClose }: Props) {
               </>
             ) : (
               <span className="text-xs text-slate-400">{t('tickets.noAgents')}</span>
-            )}
+            ))}
             <button
               onClick={() => autoAssignMutation.mutate(tk.id)}
               disabled={busy}
+              title={role === 'AGENT' ? t('tickets.takeTicketHint') : undefined}
               className="cursor-pointer rounded-xl border border-slate-300 px-3.5 py-2 text-xs font-semibold text-slate-600 transition-all hover:-translate-y-0.5 hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
             >
-              {autoAssignMutation.isPending ? t('tickets.assigning') : `⚡ ${t('tickets.autoAssign')}`}
+              {autoAssignMutation.isPending
+                ? t('tickets.assigning')
+                : role === 'AGENT'
+                  ? `⚡ ${t('tickets.takeTicket')}`
+                  : `⚡ ${t('tickets.autoAssign')}`}
             </button>
           </div>
+        )}
+
+        {onOpenChat && (
+          <button
+            onClick={() => onOpenChat(tk.id)}
+            className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-300 px-3.5 py-2 text-xs font-semibold text-slate-600 transition-all hover:-translate-y-0.5 hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 dark:border-white/10 dark:text-slate-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
+          >
+            <ChatIcon /> {t('tickets.openChat')}
+          </button>
         )}
       </div>
     </section>
