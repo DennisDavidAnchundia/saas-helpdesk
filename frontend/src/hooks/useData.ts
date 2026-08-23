@@ -3,6 +3,7 @@ import { apiClient } from '../services/apiClient';
 import type {
   AgentInfo,
   Article,
+  CreateUserRequest,
   DashboardSummary,
   SlaPolicy,
   Ticket,
@@ -136,6 +137,21 @@ export function useUsers(enabled = true) {
       return data;
     },
     enabled,
+  });
+}
+
+export function useCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: CreateUserRequest) => {
+      const { data } = await apiClient.post<UserInfo>('/users', payload);
+      return data;
+    },
+    // El nuevo agente debe aparecer en el listado y ser asignable al toque
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.users });
+      qc.invalidateQueries({ queryKey: queryKeys.agents });
+    },
   });
 }
 

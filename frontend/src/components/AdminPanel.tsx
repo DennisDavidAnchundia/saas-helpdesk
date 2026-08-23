@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SlaPolicy, UserInfo, UserRole } from '../services/api';
-import { useSetUserActive, useSlaPolicy, useUpdateSlaPolicy, useUsers } from '../hooks/useData';
+import {
+  useCreateUser,
+  useSetUserActive,
+  useSlaPolicy,
+  useUpdateSlaPolicy,
+  useUsers,
+} from '../hooks/useData';
 
 const ROLE_STYLES: Record<UserRole, string> = {
   ADMIN: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
@@ -13,11 +19,17 @@ export default function AdminPanel() {
   const { t } = useTranslation();
   const usersQuery = useUsers(true);
   const toggleMutation = useSetUserActive();
+  const createMutation = useCreateUser();
   const slaQuery = useSlaPolicy(true);
   const slaMutation = useUpdateSlaPolicy();
 
   const [slaForm, setSlaForm] = useState<SlaPolicy | null>(null);
   const [savedNote, setSavedNote] = useState(false);
+
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [createdNote, setCreatedNote] = useState(false);
 
   // Sincroniza el formulario cuando llegan los datos del servidor
   useEffect(() => {
@@ -25,12 +37,30 @@ export default function AdminPanel() {
   }, [slaQuery.data]);
 
   const users = usersQuery.data ?? [];
-  const error = usersQuery.error?.message ?? toggleMutation.error?.message ?? '';
+  const error =
+    usersQuery.error?.message ??
+    toggleMutation.error?.message ??
+    createMutation.error?.message ??
+    '';
 
   const handleToggle = async (u: UserInfo) => {
     setSavedNote(false);
     try {
       await toggleMutation.mutateAsync({ id: u.id, isActive: !u.active });
+    } catch {
+      /* el error ya vive en la mutacion */
+    }
+  };
+
+  const handleCreateAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatedNote(false);
+    try {
+      await createMutation.mutateAsync({ fullName, email, password });
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      setCreatedNote(true);
     } catch {
       /* el error ya vive en la mutacion */
     }
@@ -84,6 +114,48 @@ export default function AdminPanel() {
         {usersQuery.isLoading && (
           <p className="py-8 text-center text-sm text-slate-400">{t('admin.loading')}</p>
         )}
+
+        {/* Crear agente */}
+        <form onSubmit={handleCreateAgent} className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('admin.createTitle')}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+            <input
+              value={fullName}
+              onChange={(e) => { setFullName(e.target.value); setCreatedNote(false); }}
+              placeholder={t('admin.createName')}
+              required
+              minLength={2}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition-shadow focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
+            <input
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setCreatedNote(false); }}
+              placeholder={t('admin.createEmail')}
+              type="email"
+              required
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition-shadow focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
+            <button
+              type="submit"
+              disabled={createMutation.isPending || !fullName || !email || password.length < 8}
+              className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 sm:w-auto"
+            >
+              {createMutation.isPending ? t('admin.creating') : t('admin.createBtn')}
+            </button>
+          </div>
+          <input
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); setCreatedNote(false); }}
+            placeholder={t('admin.createPassword')}
+            type="text"
+            required
+            minLength={8}
+            className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition-shadow focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 sm:max-w-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
+          />
+          {createdNote && !createMutation.error && (
+            <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">✓ {t('admin.created')}</p>
+          )}
+        </form>
 
         <ul className="divide-y divide-slate-100 dark:divide-white/5">
           {users.map((u) => (

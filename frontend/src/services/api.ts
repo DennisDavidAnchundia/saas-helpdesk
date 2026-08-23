@@ -44,6 +44,12 @@ export interface AgentInfo {
 
 export type UserRole = 'ADMIN' | 'AGENT' | 'CUSTOMER';
 
+export interface CreateUserRequest {
+  fullName: string;
+  email: string;
+  password: string;
+}
+
 export interface UserInfo {
   id: number;
   fullName: string;

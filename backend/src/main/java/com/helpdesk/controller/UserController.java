@@ -2,10 +2,12 @@ package com.helpdesk.controller;
 
 import com.helpdesk.config.JwtPrincipal;
 import com.helpdesk.dto.AgentResponse;
+import com.helpdesk.dto.CreateUserRequest;
 import com.helpdesk.dto.UpdateUserActiveRequest;
 import com.helpdesk.dto.UserResponse;
 import com.helpdesk.service.UserService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -34,6 +36,15 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserResponse> users(@AuthenticationPrincipal JwtPrincipal principal) {
         return userService.listUsers(principal.getTenantId());
+    }
+
+    /** Crear un agente del tenant (panel admin). */
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
+    public UserResponse create(@Valid @RequestBody CreateUserRequest request,
+                               @AuthenticationPrincipal JwtPrincipal principal) {
+        return userService.createAgent(principal.getTenantId(), request);
     }
 
     /** Activar / desactivar un agente del tenant (panel admin). */

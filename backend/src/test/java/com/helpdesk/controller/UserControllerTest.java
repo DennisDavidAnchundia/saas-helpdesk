@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -206,6 +207,80 @@ class UserControllerTest {
 
         mockMvc.perform(get("/api/users")
                         .header("Authorization", "Bearer " + token(customer)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCreatesAgent() throws Exception {
+        Tenant tenant = createTenant("Create Co");
+        User admin = createUser(tenant, "admin@create.com", Role.ADMIN);
+
+        mockMvc.perform(post("/api/users")
+                        .header("Authorization", "Bearer " + token(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Nuevo Agente\",\"email\":\"nuevo@create.com\",\"password\":\"password123\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("nuevo@create.com"))
+                .andExpect(jsonPath("$.role").value("AGENT"))
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.fullName").value("Nuevo Agente"));
+
+        // El agente creado aparece en el listado de agentes activos
+        mockMvc.perform(get("/api/users/agents")
+                        .header("Authorization", "Bearer " + token(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].email", hasItems("nuevo@create.com")));
+    }
+
+    @Test
+    void duplicateEmailInTenantIsRejected() throws Exception {
+        Tenant tenant = createTenant("Dup Co");
+        User admin = createUser(tenant, "admin@dup.com", Role.ADMIN);
+        createUser(tenant, "agente@dup.com", Role.AGENT);
+
+        mockMvc.perform(post("/api/users")
+                        .header("Authorization", "Bearer " + token(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Duplicado\",\"email\":\"agente@dup.com\",\"password\":\"password123\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createValidatesPayload() throws Exception {
+        Tenant tenant = createTenant("Validate Co");
+        User admin = createUser(tenant, "admin@validate.com", Role.ADMIN);
+
+        // Contraseña corta
+        mockMvc.perform(post("/api/users")
+                        .header("Authorization", "Bearer " + token(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Corto\",\"email\":\"corto@validate.com\",\"password\":\"123\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Email invalido
+        mockMvc.perform(post("/api/users")
+                        .header("Authorization", "Bearer " + token(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Malo\",\"email\":\"no-es-email\",\"password\":\"password123\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void agentAndCustomerCannotCreateUsers() throws Exception {
+        Tenant tenant = createTenant("No Create Co");
+        User agent = createUser(tenant, "agente@nocreate.com", Role.AGENT);
+        User customer = createUser(tenant, "cliente@nocreate.com", Role.CUSTOMER);
+
+        mockMvc.perform(post("/api/users")
+                        .header("Authorization", "Bearer " + token(agent))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Agente Falso\",\"email\":\"x@nocreate.com\",\"password\":\"password123\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/users")
+                        .header("Authorization", "Bearer " + token(customer))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Cliente Falso\",\"email\":\"y@nocreate.com\",\"password\":\"password123\"}"))
                 .andExpect(status().isForbidden());
     }
 
