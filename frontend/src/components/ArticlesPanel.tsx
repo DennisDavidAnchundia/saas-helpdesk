@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   useArticles,
   useCreateArticle,
@@ -18,6 +19,7 @@ const errorBox =
   'mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300';
 
 export default function ArticlesPanel({ role }: Props) {
+  const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const [search, setSearch] = useState('');
   const [title, setTitle] = useState('');
@@ -63,7 +65,7 @@ export default function ArticlesPanel({ role }: Props) {
   return (
     <div className="animate-fade-up rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6 dark:border-white/10 dark:bg-white/[0.03]">
       <h2 className="mb-4 font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
-        Base de Conocimiento ({articles.length})
+        {t('articles.title')} ({articles.length})
       </h2>
 
       <form onSubmit={handleSearch} className="mb-5 flex gap-2">
@@ -71,14 +73,14 @@ export default function ArticlesPanel({ role }: Props) {
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Buscar en títulos y contenidos…"
+          placeholder={t('articles.searchPlaceholder')}
           className={`${inputCls} flex-1`}
         />
         <button
           type="submit"
           className="cursor-pointer rounded-xl border border-slate-200/70 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
         >
-          Buscar
+          {t('articles.search')}
         </button>
         {(search || inputValue) && (
           <button
@@ -86,7 +88,7 @@ export default function ArticlesPanel({ role }: Props) {
             onClick={handleClearSearch}
             className="cursor-pointer rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:text-brand-500 dark:hover:text-brand-300"
           >
-            Limpiar
+            {t('articles.clear')}
           </button>
         )}
       </form>
@@ -100,7 +102,7 @@ export default function ArticlesPanel({ role }: Props) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Título del artículo"
+            placeholder={t('articles.articleTitle')}
             required
             maxLength={255}
             className={`${inputCls} w-full`}
@@ -108,7 +110,7 @@ export default function ArticlesPanel({ role }: Props) {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="Contenido del artículo"
+            placeholder={t('articles.articleContent')}
             rows={3}
             required
             className={`${inputCls} w-full resize-none`}
@@ -118,7 +120,7 @@ export default function ArticlesPanel({ role }: Props) {
               type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder="Categoría (opcional)"
+              placeholder={t('articles.categoryOptional')}
               className={`${inputCls} flex-1`}
             />
             <button
@@ -126,20 +128,20 @@ export default function ArticlesPanel({ role }: Props) {
               disabled={createMutation.isPending}
               className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60"
             >
-              {createMutation.isPending ? 'Creando…' : '+ Crear borrador'}
+              {createMutation.isPending ? t('articles.creatingDraft') : t('articles.createDraft')}
             </button>
           </div>
         </form>
       )}
 
       {!isStaff && (
-        <p className="mb-4 text-xs text-slate-400">Como CUSTOMER solo ves artículos publicados.</p>
+        <p className="mb-4 text-xs text-slate-400">{t('articles.customerNote')}</p>
       )}
 
       {error && <div className={errorBox}>{error}</div>}
 
       {articlesQuery.isLoading ? (
-        <p className="py-8 text-center text-sm text-slate-400">Cargando artículos…</p>
+        <p className="py-8 text-center text-sm text-slate-400">{t('articles.loading')}</p>
       ) : (
         <div className="space-y-3">
           {articles.map((a) => (
@@ -154,7 +156,7 @@ export default function ArticlesPanel({ role }: Props) {
           ))}
           {articles.length === 0 && !error && (
             <p className="py-8 text-center text-sm text-slate-400">
-              No hay artículos que mostrar{search ? ' para esa búsqueda' : ''}.
+              {search ? t('articles.emptySearch') : t('articles.empty')}
             </p>
           )}
         </div>
@@ -176,6 +178,7 @@ function ArticleCard({
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const { t, i18n } = useTranslation();
   return (
     <article className="rounded-2xl border border-slate-200/70 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-500/5 dark:border-white/10 dark:hover:border-brand-500/40">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -188,7 +191,7 @@ function ArticleCard({
                 : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300'
             }`}
           >
-            {article.isPublished ? 'PUBLICADO' : 'BORRADOR'}
+            {article.isPublished ? t('articles.published') : t('articles.draft')}
           </span>
           {article.category && (
             <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[11px] font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
@@ -202,14 +205,14 @@ function ArticleCard({
               onClick={onToggle}
               className="cursor-pointer rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
             >
-              {article.isPublished ? 'Despublicar' : 'Publicar'}
+              {article.isPublished ? t('articles.unpublish') : t('articles.publish')}
             </button>
             {isAdmin && (
               <button
                 onClick={onDelete}
                 className="cursor-pointer rounded-lg border border-red-200 px-2.5 py-1 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
               >
-                Borrar
+                {t('articles.delete')}
               </button>
             )}
           </div>
@@ -217,8 +220,8 @@ function ArticleCard({
       </div>
       <p className="mt-2 whitespace-pre-wrap text-xs text-slate-500 dark:text-slate-400">{article.content}</p>
       <p className="mt-1.5 text-xs text-slate-400">
-        Autor: {article.authorName || '-'} · Actualizado:{' '}
-        {new Date(article.updatedAt).toLocaleString('es')}
+        {t('articles.author')}: {article.authorName || '-'} · {t('articles.updated')}:{' '}
+        {new Date(article.updatedAt).toLocaleString(i18n.language)}
       </p>
     </article>
   );

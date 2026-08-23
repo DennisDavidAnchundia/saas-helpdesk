@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Client, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getMessages, getPresence, type ChatMessage, type Ticket } from '../services/api';
@@ -17,6 +18,7 @@ function decodeJwt(token: string): { tenantId?: number; userId?: number } {
 }
 
 export default function ChatPanel({ token, tickets }: Props) {
+  const { t, i18n } = useTranslation();
   const payload = decodeJwt(token);
   const tenantId = payload.tenantId;
   const userId = Number(payload.userId);
@@ -133,7 +135,7 @@ export default function ChatPanel({ token, tickets }: Props) {
     <div className="animate-fade-up rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6 dark:border-white/10 dark:bg-white/[0.03]">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
-          Chat del ticket
+          {t('chat.title')}
         </h2>
         <div className="flex items-center gap-2 text-xs">
           <span
@@ -142,16 +144,14 @@ export default function ChatPanel({ token, tickets }: Props) {
             }`}
           />
           <span className={connected ? 'font-medium text-emerald-600 dark:text-emerald-400' : 'font-medium text-red-500'}>
-            {connected ? 'Conectado' : 'Desconectado'}
+            {connected ? t('chat.connected') : t('chat.disconnected')}
           </span>
-          <span className="text-slate-400">· En línea: {onlineIds.length}</span>
+          <span className="text-slate-400">· {t('chat.online')}: {onlineIds.length}</span>
         </div>
       </div>
 
       {tickets.length === 0 ? (
-        <p className="py-8 text-center text-sm text-slate-400">
-          Crea un ticket primero para poder chatear.
-        </p>
+        <p className="py-8 text-center text-sm text-slate-400">{t('chat.needTicket')}</p>
       ) : (
         <>
           <select
@@ -159,9 +159,9 @@ export default function ChatPanel({ token, tickets }: Props) {
             onChange={(e) => setSelectedId(Number(e.target.value))}
             className="mb-4 w-full cursor-pointer rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition-shadow focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
-            {tickets.map((t) => (
-              <option key={t.id} value={t.id}>
-                #{t.id} · {t.title} ({t.status})
+            {tickets.map((tk) => (
+              <option key={tk.id} value={tk.id}>
+                #{tk.id} · {tk.title} ({tk.status})
               </option>
             ))}
           </select>
@@ -191,14 +191,14 @@ export default function ChatPanel({ token, tickets }: Props) {
                     )}
                     <p className="whitespace-pre-wrap break-words">{m.content}</p>
                     <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-slate-400'}`}>
-                      {new Date(m.sentAt).toLocaleTimeString('es')}
+                      {new Date(m.sentAt).toLocaleTimeString(i18n.language)}
                     </p>
                   </div>
                 </div>
               );
             })}
             {messages.length === 0 && (
-              <p className="py-10 text-center text-xs text-slate-400">Sin mensajes todavía.</p>
+              <p className="py-10 text-center text-xs text-slate-400">{t('chat.noMessages')}</p>
             )}
             <div ref={endRef} />
           </div>
@@ -208,7 +208,7 @@ export default function ChatPanel({ token, tickets }: Props) {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={connected ? 'Escribe un mensaje…' : 'Esperando conexión…'}
+              placeholder={connected ? t('chat.placeholder') : t('chat.waitingConnection')}
               disabled={!connected}
               className="flex-1 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:disabled:bg-white/[0.02]"
             />
@@ -217,7 +217,7 @@ export default function ChatPanel({ token, tickets }: Props) {
               disabled={!connected || !input.trim()}
               className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
-              Enviar
+              {t('chat.send')}
             </button>
           </form>
         </>

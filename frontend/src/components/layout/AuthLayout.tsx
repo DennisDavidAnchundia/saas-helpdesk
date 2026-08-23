@@ -1,13 +1,8 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import ThemeToggle from './ThemeToggle';
+import LanguageSwitcher from './LanguageSwitcher';
 import { SparkIcon } from '../icons';
-
-const FEATURES = [
-  'Tickets con SLA y estados claros',
-  'Chat en vivo con tus agentes',
-  'Base de conocimiento compartida',
-  'Métricas en tiempo real',
-];
 
 interface AuthLayoutProps {
   title: string;
@@ -16,6 +11,15 @@ interface AuthLayoutProps {
 }
 
 export default function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
+  const { t } = useTranslation();
+
+  const features = [
+    t('auth.feature1'),
+    t('auth.feature2'),
+    t('auth.feature3'),
+    t('auth.feature4'),
+  ];
+
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* ===== Panel de marca (solo desktop) ===== */}
@@ -39,13 +43,13 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
 
         <div className="relative max-w-md">
           <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-white">
-            Soporte que se siente{' '}
+            {t('auth.brandTagline')}{' '}
             <span className="bg-gradient-to-r from-brand-300 to-violet-300 bg-clip-text text-transparent">
-              humano
+              {t('auth.brandTaglineAccent')}
             </span>
           </h1>
           <ul className="mt-8 space-y-3.5">
-            {FEATURES.map((f) => (
+            {features.map((f) => (
               <li key={f} className="flex items-center gap-3 text-sm text-slate-300">
                 <span className="grid size-5 shrink-0 place-items-center rounded-full bg-brand-500/25 text-[10px] text-brand-200 ring-1 ring-brand-400/40">
                   ✓
@@ -56,14 +60,13 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
           </ul>
         </div>
 
-        <p className="relative text-xs text-slate-400">
-          © 2026 HelpDesk · Multi-tenant desde el día uno
-        </p>
+        <p className="relative text-xs text-slate-400">{t('auth.copyright')}</p>
       </div>
 
       {/* ===== Formulario ===== */}
       <div className="relative flex items-center justify-center p-4 sm:p-8">
-        <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
+        <div className="absolute right-4 top-4 flex gap-2 sm:right-6 sm:top-6">
+          <LanguageSwitcher size="sm" />
           <ThemeToggle size="sm" />
         </div>
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -33,6 +34,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
 /** Recibe el callback de OAuth (?token=...&email=...), guarda la sesion y entra. */
 function OAuthCallback({ onSuccess }: { onSuccess: (auth: AuthState) => void }) {
+  const { t } = useTranslation();
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -64,7 +66,7 @@ function OAuthCallback({ onSuccess }: { onSuccess: (auth: AuthState) => void }) 
     <div className="grid min-h-dvh place-items-center">
       <div className="text-center">
         <div className="mx-auto size-10 animate-spin rounded-full border-4 border-brand-200 border-t-brand-500" />
-        <p className="mt-4 text-sm text-slate-500">Completando inicio de sesión…</p>
+        <p className="mt-4 text-sm text-slate-500">{t('auth.completingLogin')}</p>
       </div>
     </div>
   );

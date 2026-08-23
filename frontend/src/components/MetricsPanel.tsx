@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useDashboardSummary } from '../hooks/useData';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -8,21 +9,13 @@ const STATUS_STYLES: Record<string, string> = {
   REOPENED: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
 };
 
-function formatSeconds(seconds: number | null): string {
-  if (seconds === null) return 'Sin datos';
-  if (seconds < 60) return `${Math.round(seconds)} s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours} h ${minutes % 60} min`;
-}
-
 const card =
   'rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-500/5 sm:p-5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-500/40';
 const sectionCard =
   'rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6 dark:border-white/10 dark:bg-white/[0.03]';
 
 export default function MetricsPanel() {
+  const { t } = useTranslation();
   const { data: summary, error, isLoading, refetch } = useDashboardSummary();
 
   if (isLoading) {
@@ -55,20 +48,20 @@ export default function MetricsPanel() {
           onClick={() => refetch()}
           className="cursor-pointer rounded-xl border border-slate-200/70 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
         >
-          Refrescar
+          {t('metrics.refresh')}
         </button>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className={card}>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Tickets totales</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{t('metrics.totalTickets')}</p>
           <p className="mt-1.5 font-display text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             {summary.totalTickets}
           </p>
         </div>
         <div className={card}>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">SLA vencidos</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{t('metrics.slaBreached')}</p>
           <p
             className={`mt-1.5 font-display text-3xl font-bold tracking-tight ${
               summary.slaBreachedCount > 0 ? 'text-red-500' : 'text-emerald-500'
@@ -78,15 +71,15 @@ export default function MetricsPanel() {
           </p>
         </div>
         <div className={card}>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Resolución promedio</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{t('metrics.avgResolution')}</p>
           <p className="mt-1.5 font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            {formatSeconds(summary.avgResolutionSeconds)}
+            {formatSeconds(summary.avgResolutionSeconds, t('metrics.noData'))}
           </p>
         </div>
         <div className={card}>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Primera respuesta</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{t('metrics.firstResponse')}</p>
           <p className="mt-1.5 font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            {formatSeconds(summary.avgFirstResponseSeconds)}
+            {formatSeconds(summary.avgFirstResponseSeconds, t('metrics.noData'))}
           </p>
         </div>
       </div>
@@ -95,7 +88,7 @@ export default function MetricsPanel() {
       <div className="grid gap-4 md:grid-cols-2">
         <div className={sectionCard}>
           <h3 className="mb-4 font-display text-sm font-bold tracking-tight text-slate-900 dark:text-white">
-            Tickets por estado
+            {t('metrics.byStatus')}
           </h3>
           <div className="space-y-3.5">
             {Object.entries(summary.ticketsByStatus).map(([status, count]) => {
@@ -124,12 +117,10 @@ export default function MetricsPanel() {
 
         <div className={sectionCard}>
           <h3 className="mb-4 font-display text-sm font-bold tracking-tight text-slate-900 dark:text-white">
-            Top agentes
+            {t('metrics.topAgents')}
           </h3>
           {summary.topAgents.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-400">
-              Todavía no hay tickets asignados a agentes.
-            </p>
+            <p className="py-6 text-center text-sm text-slate-400">{t('metrics.emptyAgents')}</p>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-white/5">
               {summary.topAgents.map((agent, i) => (
@@ -161,4 +152,13 @@ export default function MetricsPanel() {
       </div>
     </div>
   );
+}
+
+function formatSeconds(seconds: number | null, noDataLabel: string): string {
+  if (seconds === null) return noDataLabel;
+  if (seconds < 60) return `${Math.round(seconds)} s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} h ${minutes % 60} min`;
 }

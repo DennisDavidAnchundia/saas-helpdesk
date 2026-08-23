@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/layout/AuthLayout';
 import { login, googleLoginUrl } from '../services/api';
@@ -11,6 +12,7 @@ const inputCls =
   'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white';
 
 export default function LoginPage({ onSuccess }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const slugFromState = (location.state as { slug?: string } | null)?.slug ?? '';
@@ -37,11 +39,11 @@ export default function LoginPage({ onSuccess }: Props) {
   };
 
   return (
-    <AuthLayout title="Bienvenido de vuelta" subtitle="Inicia sesión para continuar con tu workspace">
+    <AuthLayout title={t('auth.loginTitle')} subtitle={t('auth.loginSubtitle')}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Email
+            {t('auth.email')}
           </label>
           <input
             type="email"
@@ -54,7 +56,7 @@ export default function LoginPage({ onSuccess }: Props) {
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Contraseña
+            {t('auth.password')}
           </label>
           <input
             type="password"
@@ -67,7 +69,7 @@ export default function LoginPage({ onSuccess }: Props) {
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Slug del workspace
+            {t('auth.tenantSlug')}
           </label>
           <input
             type="text"
@@ -90,7 +92,7 @@ export default function LoginPage({ onSuccess }: Props) {
           disabled={loading}
           className="w-full cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 py-2.5 font-display text-sm font-bold tracking-wide text-white shadow-lg shadow-brand-500/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
         >
-          {loading ? 'Ingresando…' : 'Iniciar sesión'}
+          {loading ? t('auth.signingIn') : t('auth.signIn')}
         </button>
       </form>
 
@@ -100,7 +102,7 @@ export default function LoginPage({ onSuccess }: Props) {
         </div>
         <div className="relative flex justify-center text-xs">
           <span className="bg-white px-3 uppercase tracking-widest text-slate-400 dark:bg-[#14141f] dark:text-slate-500">
-            o continúa con
+            {t('auth.orContinue')}
           </span>
         </div>
       </div>
@@ -119,12 +121,12 @@ export default function LoginPage({ onSuccess }: Props) {
       </a>
 
       <p className="mt-7 text-center text-sm text-slate-500 dark:text-slate-400">
-        ¿No tienes cuenta?{' '}
+        {t('auth.noAccount')}{' '}
         <Link
           to="/register"
           className="font-semibold text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
         >
-          Regístrate gratis
+          {t('auth.registerFree')}
         </Link>
       </p>
     </AuthLayout>

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import ThemeToggle from './ThemeToggle';
+import LanguageSwitcher from './LanguageSwitcher';
 import {
   CloseIcon,
   LogoutIcon,
@@ -58,6 +60,7 @@ export default function AppLayout({
   actions,
   children,
 }: AppLayoutProps) {
+  const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const activeItem = items.find((i) => i.id === activeId);
@@ -118,7 +121,7 @@ export default function AppLayout({
         <button
           type="button"
           onClick={onLogout}
-          title="Cerrar sesión"
+          title={t('layout.logout')}
           className="cursor-pointer rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
         >
           <LogoutIcon className="text-base" />
@@ -135,7 +138,7 @@ export default function AppLayout({
           <Logo />
           <div>
             <p className="mb-2 px-3.5 text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              Workspace
+              {t('nav.workspace')}
             </p>
             {navList()}
           </div>
@@ -182,11 +185,12 @@ export default function AppLayout({
 
           <div className="min-w-0 flex-1">
             <h1 className="truncate font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-              {activeItem?.label ?? 'Dashboard'}
+              {activeItem?.label ?? t('layout.dashboard')}
             </h1>
           </div>
 
           {actions}
+          <LanguageSwitcher />
           <ThemeToggle />
         </header>
 

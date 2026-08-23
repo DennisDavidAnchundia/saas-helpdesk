@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { testEndpoint } from '../services/api';
 import type { TicketPriority, TicketStatus } from '../services/api';
 import {
@@ -6,7 +7,8 @@ import {
   useCreateTicket,
   useTickets,
 } from '../hooks/useData';
-import AppLayout, { type NavItem } from '../components/layout/AppLayout';
+import AppLayout from '../components/layout/AppLayout';
+import type { NavItem } from '../components/layout/AppLayout';
 import {
   BookIcon,
   ChartIcon,
@@ -34,21 +36,6 @@ interface TestResult {
   body: any;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { id: 'tickets', label: 'Tickets', icon: <TicketIcon /> },
-  { id: 'articles', label: 'Base de Conocimiento', icon: <BookIcon /> },
-  { id: 'chat', label: 'Chat en Vivo', icon: <ChatIcon /> },
-  { id: 'metrics', label: 'Métricas', icon: <ChartIcon /> },
-  { id: 'tests', label: 'Pruebas API', icon: <FlaskIcon /> },
-];
-
-const ENDPOINTS = [
-  { path: '/api/test/admin', label: 'Admin Only', expected: 'ADMIN' },
-  { path: '/api/test/agent', label: 'Agent Only', expected: 'AGENT' },
-  { path: '/api/test/customer', label: 'Customer Only', expected: 'CUSTOMER' },
-  { path: '/api/test/any', label: 'Any Role', expected: 'ANY' },
-];
-
 const TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   OPEN: ['IN_PROGRESS', 'RESOLVED'],
   IN_PROGRESS: ['RESOLVED'],
@@ -73,6 +60,7 @@ const PRIORITY_STYLES: Record<TicketPriority, string> = {
 };
 
 export default function DashboardPage({ email, role, tenantName, token, onLogout }: Props) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('tickets');
   const [results, setResults] = useState<TestResult[]>([]);
   const [testing, setTesting] = useState(false);
@@ -89,11 +77,26 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
   const actionError =
     createMutation.error?.message ?? statusMutation.error?.message ?? '';
 
+  const baseNavItems: NavItem[] = [
+    { id: 'tickets', label: t('nav.tickets'), icon: <TicketIcon /> },
+    { id: 'articles', label: t('nav.articles'), icon: <BookIcon /> },
+    { id: 'chat', label: t('nav.chat'), icon: <ChatIcon /> },
+    { id: 'metrics', label: t('nav.metrics'), icon: <ChartIcon /> },
+    { id: 'tests', label: t('nav.tests'), icon: <FlaskIcon /> },
+  ];
+
   // Badge con la cantidad de tickets abiertos
   const openCount = tickets.filter((t) => t.status === 'OPEN' || t.status === 'REOPENED').length;
-  const navItems = NAV_ITEMS.map((item) =>
+  const navItems = baseNavItems.map((item) =>
     item.id === 'tickets' && openCount > 0 ? { ...item, badge: String(openCount) } : item,
   );
+
+  const ENDPOINTS = [
+    { path: '/api/test/admin', label: t('tests.adminOnly') },
+    { path: '/api/test/agent', label: t('tests.agentOnly') },
+    { path: '/api/test/customer', label: t('tests.customerOnly') },
+    { path: '/api/test/any', label: t('tests.anyRole') },
+  ];
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,14 +155,14 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
             {/* Formulario de creación */}
             <section className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6 dark:border-white/10 dark:bg-white/[0.03]">
               <h2 className="mb-4 font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
-                Nuevo ticket
+                {t('tickets.newTicket')}
               </h2>
               <form onSubmit={handleCreateTicket} className="space-y-3">
                 <input
                   type="text"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Título del ticket"
+                  placeholder={t('tickets.titlePlaceholder')}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white"
                   required
                   maxLength={255}
@@ -167,7 +170,7 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
                 <textarea
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="Descripción del problema"
+                  placeholder={t('tickets.descPlaceholder')}
                   className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white"
                   rows={2}
                   required
@@ -188,7 +191,7 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
                     disabled={createMutation.isPending}
                     className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                   >
-                    {createMutation.isPending ? 'Creando…' : '+ Crear ticket'}
+                    {createMutation.isPending ? t('tickets.creating') : t('tickets.createBtn')}
                   </button>
                 </div>
               </form>
@@ -203,41 +206,41 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
             {/* Lista de tickets */}
             <section className="space-y-3">
               <h2 className="font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
-                Tickets ({tickets.length})
+                {t('tickets.count', { count: tickets.length })}
               </h2>
               {ticketsQuery.isLoading && (
-                <p className="py-8 text-center text-sm text-slate-400">Cargando tickets…</p>
+                <p className="py-8 text-center text-sm text-slate-400">{t('tickets.loading')}</p>
               )}
-              {tickets.map((t) => (
+              {tickets.map((tk) => (
                 <article
-                  key={t.id}
+                  key={tk.id}
                   className="group rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-500/5 sm:p-5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-500/40"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs font-semibold text-brand-500 dark:text-brand-400">
-                        #{t.id}
+                        #{tk.id}
                       </span>
                       <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        {t.title}
+                        {tk.title}
                       </span>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLES[t.status]}`}>
-                        {t.status}
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLES[tk.status]}`}>
+                        {tk.status}
                       </span>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_STYLES[t.priority]}`}>
-                        {t.priority}
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_STYLES[tk.priority]}`}>
+                        {tk.priority}
                       </span>
-                      {t.slaBreached && (
+                      {tk.slaBreached && (
                         <span className="animate-pulse-dot rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white">
-                          SLA VENCIDO
+                          {t('tickets.slaBreached')}
                         </span>
                       )}
                     </div>
                     <div className="flex gap-1.5">
-                      {(TRANSITIONS[t.status] || []).map((next) => (
+                      {(TRANSITIONS[tk.status] || []).map((next) => (
                         <button
                           key={next}
-                          onClick={() => statusMutation.mutate({ id: t.id, status: next })}
+                          onClick={() => statusMutation.mutate({ id: tk.id, status: next })}
                           className="cursor-pointer rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
                         >
                           {next}
@@ -245,19 +248,17 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
                       ))}
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{t.description}</p>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{tk.description}</p>
                   <p className="mt-1.5 text-xs text-slate-400">
-                    Cliente: {t.customerName}
-                    {' · '}Agente: {t.agentName || 'sin asignar'}
-                    {t.slaDueAt && ` · SLA vence: ${new Date(t.slaDueAt).toLocaleString('es')}`}
-                    {t.firstResponseAt && ` · 1ra respuesta: ${new Date(t.firstResponseAt).toLocaleTimeString('es')}`}
+                    {t('tickets.customer')}: {tk.customerName}
+                    {' · '}{t('tickets.agent')}: {tk.agentName || t('tickets.unassigned')}
+                    {tk.slaDueAt && ` · ${t('tickets.slaDue')}: ${new Date(tk.slaDueAt).toLocaleString('es')}`}
+                    {tk.firstResponseAt && ` · ${t('tickets.firstResponse')}: ${new Date(tk.firstResponseAt).toLocaleTimeString('es')}`}
                   </p>
                 </article>
               ))}
-              {tickets.length === 0 && !ticketsError && (
-                <p className="py-8 text-center text-sm text-slate-400">
-                  No hay tickets todavía. Crea el primero arriba.
-                </p>
+              {tickets.length === 0 && !ticketsError && !ticketsQuery.isLoading && (
+                <p className="py-8 text-center text-sm text-slate-400">{t('tickets.empty')}</p>
               )}
             </section>
           </>
@@ -273,10 +274,10 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
-                  Acceso por roles
+                  {t('tests.title')}
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Verifica qué endpoints responde tu rol · Sesión: {email} ({role}) · {tenantName}
+                  {t('tests.subtitle', { email, role, tenant: tenantName })}
                 </p>
               </div>
               <button
@@ -284,7 +285,7 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
                 disabled={testing}
                 className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60"
               >
-                {testing ? 'Probando…' : 'Probar todos'}
+                {testing ? t('tests.testing') : t('tests.runAll')}
               </button>
             </div>
 
