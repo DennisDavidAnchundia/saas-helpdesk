@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { testEndpoint } from '../services/api';
+import type { TicketPriority, TicketStatus } from '../services/api';
 import {
-  testEndpoint,
-  listTickets,
-  createTicket,
-  changeTicketStatus,
-  type Ticket,
-  type TicketPriority,
-  type TicketStatus,
-} from '../services/api';
+  useChangeTicketStatus,
+  useCreateTicket,
+  useTickets,
+} from '../hooks/useData';
 import AppLayout, { type NavItem } from '../components/layout/AppLayout';
 import {
   BookIcon,
@@ -78,28 +76,18 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
   const [tab, setTab] = useState<Tab>('tickets');
   const [results, setResults] = useState<TestResult[]>([]);
   const [testing, setTesting] = useState(false);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [ticketsError, setTicketsError] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newPriority, setNewPriority] = useState<TicketPriority>('MEDIUM');
-  const [creating, setCreating] = useState(false);
-  const [actionError, setActionError] = useState('');
 
-  const loadTickets = async () => {
-    try {
-      setTicketsError('');
-      const data = await listTickets(token);
-      setTickets(data);
-    } catch (err: any) {
-      setTicketsError(err.message);
-    }
-  };
+  const ticketsQuery = useTickets();
+  const createMutation = useCreateTicket();
+  const statusMutation = useChangeTicketStatus();
 
-  useEffect(() => {
-    loadTickets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const tickets = ticketsQuery.data ?? [];
+  const ticketsError = ticketsQuery.error?.message ?? '';
+  const actionError =
+    createMutation.error?.message ?? statusMutation.error?.message ?? '';
 
   // Badge con la cantidad de tickets abiertos
   const openCount = tickets.filter((t) => t.status === 'OPEN' || t.status === 'REOPENED').length;
@@ -109,28 +97,13 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    setActionError('');
-    setCreating(true);
     try {
-      await createTicket(token, { title: newTitle, description: newDesc, priority: newPriority });
+      await createMutation.mutateAsync({ title: newTitle, description: newDesc, priority: newPriority });
       setNewTitle('');
       setNewDesc('');
       setNewPriority('MEDIUM');
-      await loadTickets();
-    } catch (err: any) {
-      setActionError(err.message);
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleStatusChange = async (id: number, status: TicketStatus) => {
-    setActionError('');
-    try {
-      await changeTicketStatus(token, id, status);
-      await loadTickets();
-    } catch (err: any) {
-      setActionError(err.message);
+    } catch {
+      /* el error ya vive en la mutacion */
     }
   };
 
@@ -212,10 +185,10 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
                   </select>
                   <button
                     type="submit"
-                    disabled={creating}
+                    disabled={createMutation.isPending}
                     className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                   >
-                    {creating ? 'Creando…' : '+ Crear ticket'}
+                    {createMutation.isPending ? 'Creando…' : '+ Crear ticket'}
                   </button>
                 </div>
               </form>
@@ -232,6 +205,9 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
               <h2 className="font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
                 Tickets ({tickets.length})
               </h2>
+              {ticketsQuery.isLoading && (
+                <p className="py-8 text-center text-sm text-slate-400">Cargando tickets…</p>
+              )}
               {tickets.map((t) => (
                 <article
                   key={t.id}
@@ -261,7 +237,7 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
                       {(TRANSITIONS[t.status] || []).map((next) => (
                         <button
                           key={next}
-                          onClick={() => handleStatusChange(t.id, next)}
+                          onClick={() => statusMutation.mutate({ id: t.id, status: next })}
                           className="cursor-pointer rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
                         >
                           {next}
@@ -287,9 +263,9 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
           </>
         )}
 
-        {tab === 'articles' && <ArticlesPanel token={token} role={role} />}
+        {tab === 'articles' && <ArticlesPanel role={role} />}
         {tab === 'chat' && <ChatPanel token={token} tickets={tickets} />}
-        {tab === 'metrics' && <MetricsPanel token={token} />}
+        {tab === 'metrics' && <MetricsPanel />}
 
         {/* ===================== PRUEBAS API ===================== */}
         {tab === 'tests' && (

@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
-import { getDashboardSummary, type DashboardSummary } from '../services/api';
+import { useDashboardSummary } from '../hooks/useData';
 
 const STATUS_STYLES: Record<string, string> = {
   OPEN: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
@@ -23,27 +22,10 @@ const card =
 const sectionCard =
   'rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6 dark:border-white/10 dark:bg-white/[0.03]';
 
-export default function MetricsPanel({ token }: { token: string }) {
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+export default function MetricsPanel() {
+  const { data: summary, error, isLoading, refetch } = useDashboardSummary();
 
-  const load = useCallback(async () => {
-    try {
-      setError('');
-      setSummary(await getDashboardSummary(token));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar métricas');
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="animate-fade-up grid grid-cols-2 gap-4 md:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
@@ -59,7 +41,7 @@ export default function MetricsPanel({ token }: { token: string }) {
   if (error) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
-        {error}
+        {error.message}
       </div>
     );
   }
@@ -70,10 +52,7 @@ export default function MetricsPanel({ token }: { token: string }) {
     <div className="animate-fade-up space-y-6">
       <div className="flex justify-end">
         <button
-          onClick={() => {
-            setLoading(true);
-            load();
-          }}
+          onClick={() => refetch()}
           className="cursor-pointer rounded-xl border border-slate-200/70 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
         >
           Refrescar
@@ -92,9 +71,7 @@ export default function MetricsPanel({ token }: { token: string }) {
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">SLA vencidos</p>
           <p
             className={`mt-1.5 font-display text-3xl font-bold tracking-tight ${
-              summary.slaBreachedCount > 0
-                ? 'text-red-500'
-                : 'text-emerald-500'
+              summary.slaBreachedCount > 0 ? 'text-red-500' : 'text-emerald-500'
             }`}
           >
             {summary.slaBreachedCount}
