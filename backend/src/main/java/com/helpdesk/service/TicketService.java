@@ -29,16 +29,22 @@ public class TicketService {
 
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final SubscriptionService subscriptionService;
 
-    public TicketService(TicketRepository ticketRepository, UserRepository userRepository) {
+    public TicketService(TicketRepository ticketRepository,
+                         UserRepository userRepository,
+                         SubscriptionService subscriptionService) {
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
+        this.subscriptionService = subscriptionService;
     }
 
     @Transactional
     public TicketResponse create(Long customerId, CreateTicketRequest request) {
         User customer = userRepository.findById(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        subscriptionService.assertCanCreateTicket(customer.getTenant().getId());
 
         Ticket ticket = new Ticket();
         ticket.setTenant(customer.getTenant());
@@ -51,7 +57,9 @@ public class TicketService {
         ticket.setSlaDueAt(LocalDateTime.now().plusHours(
                 SLA_RESOLUTION_HOURS.get(ticket.getPriority())));
 
-        return TicketResponse.from(ticketRepository.save(ticket));
+        Ticket saved = ticketRepository.save(ticket);
+        subscriptionService.registerTicketCreated(customer.getTenant().getId());
+        return TicketResponse.from(saved);
     }
 
     @Transactional
