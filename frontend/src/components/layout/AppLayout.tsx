@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { useTheme } from '../../hooks/useTheme';
+import ThemeToggle from './ThemeToggle';
 import {
   CloseIcon,
   LogoutIcon,
   MenuIcon,
-  MoonIcon,
   SparkIcon,
-  SunIcon,
 } from '../icons';
 
 export interface NavItem {
@@ -48,20 +46,6 @@ function Logo() {
         </p>
       </div>
     </div>
-  );
-}
-
-function ThemeToggle() {
-  const { theme, toggle } = useTheme();
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-      className="grid size-9 cursor-pointer place-items-center rounded-xl border border-slate-200/80 bg-white/70 text-base text-slate-500 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-500 hover:shadow-md hover:shadow-brand-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:text-brand-400"
-    >
-      {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-    </button>
   );
 }
 

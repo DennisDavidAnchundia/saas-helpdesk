@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 
-type Page = 'login' | 'register' | 'dashboard';
-
-interface AuthState {
+export interface AuthState {
   token: string;
   email: string;
   role: string;
@@ -23,80 +23,109 @@ function getStoredAuth(): AuthState | null {
   return null;
 }
 
-function App() {
-  const [auth, setAuth] = useState<AuthState | null>(getStoredAuth);
-  const [page, setPage] = useState<Page>(auth ? 'dashboard' : 'login');
-  const [initialSlug, setInitialSlug] = useState('');
+/** Redirige a /login si no hay sesión activa. */
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  if (!getStoredAuth()) {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
 
-  // Handle OAuth callback: /auth/callback?token=xxx&email=xxx
+/** Recibe el callback de OAuth (?token=...&email=...), guarda la sesion y entra. */
+function OAuthCallback({ onSuccess }: { onSuccess: (auth: AuthState) => void }) {
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const email = params.get('email');
-    if (token && email) {
-      // Decode role from JWT payload
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const role = payload.role || 'CUSTOMER';
-        const tenantName = 'Mi Empresa';
-        const state = { token, email, role, tenantName };
-        setAuth(state);
-        localStorage.setItem('token', token);
-        localStorage.setItem('email', email);
-        localStorage.setItem('role', role);
-        localStorage.setItem('tenantName', tenantName);
-        setPage('dashboard');
-        window.history.replaceState({}, '', '/');
-      } catch {
-        console.error('Invalid OAuth callback token');
-      }
+    if (!token || !email) {
+      setError(true);
+      return;
     }
-  }, []);
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const role = payload.role || 'CUSTOMER';
+      const tenantName = payload.tenantName || 'Mi Empresa';
+      localStorage.setItem('token', token);
+      localStorage.setItem('email', email);
+      localStorage.setItem('role', role);
+      localStorage.setItem('tenantName', tenantName);
+      onSuccess({ token, email, role, tenantName });
+      window.history.replaceState({}, '', '/');
+    } catch {
+      setError(true);
+    }
+  }, [onSuccess]);
+
+  if (error) return <Navigate to="/login" replace />;
+
+  return (
+    <div className="grid min-h-dvh place-items-center">
+      <div className="text-center">
+        <div className="mx-auto size-10 animate-spin rounded-full border-4 border-brand-200 border-t-brand-500" />
+        <p className="mt-4 text-sm text-slate-500">Completando inicio de sesión…</p>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [auth, setAuth] = useState<AuthState | null>(getStoredAuth);
+
+  const handleLoginSuccess = (next: AuthState) => setAuth(next);
 
   const handleLogin = (token: string, email: string, role: string, tenantName: string) => {
     const state = { token, email, role, tenantName };
-    setAuth(state);
     localStorage.setItem('token', token);
     localStorage.setItem('email', email);
     localStorage.setItem('role', role);
     localStorage.setItem('tenantName', tenantName);
-    setPage('dashboard');
+    setAuth(state);
   };
 
   const handleLogout = () => {
     setAuth(null);
     localStorage.clear();
-    setPage('login');
   };
 
   return (
-    <>
-      {page === 'login' && (
-        <LoginPage
-          onLogin={handleLogin}
-          onGoToRegister={() => setPage('register')}
-          initialSlug={initialSlug}
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            auth ? (
+              <Navigate to="/" replace />
+            ) : (
+              <LoginPage onSuccess={handleLogin} />
+            )
+          }
         />
-      )}
-      {page === 'register' && (
-        <RegisterPage
-          onRegistered={(slug) => {
-            if (slug) setInitialSlug(slug);
-            setPage('login');
-          }}
-          onGoToLogin={() => setPage('login')}
+        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/auth/callback"
+          element={auth ? <Navigate to="/" replace /> : <OAuthCallback onSuccess={handleLoginSuccess} />}
         />
-      )}
-      {page === 'dashboard' && auth && (
-        <DashboardPage
-          email={auth.email}
-          role={auth.role}
-          tenantName={auth.tenantName}
-          token={auth.token}
-          onLogout={handleLogout}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              {auth && (
+                <DashboardPage
+                  email={auth.email}
+                  role={auth.role}
+                  tenantName={auth.tenantName}
+                  token={auth.token}
+                  onLogout={handleLogout}
+                />
+              )}
+            </ProtectedRoute>
+          }
         />
-      )}
-    </>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
