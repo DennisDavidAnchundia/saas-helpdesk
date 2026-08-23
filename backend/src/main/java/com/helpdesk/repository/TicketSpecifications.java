@@ -18,7 +18,8 @@ public final class TicketSpecifications {
                                                     TicketStatus status,
                                                     TicketPriority priority,
                                                     Long agentId,
-                                                    Long customerId) {
+                                                    Long customerId,
+                                                    String q) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("tenant").get("id"), tenantId));
@@ -33,6 +34,12 @@ public final class TicketSpecifications {
             }
             if (customerId != null) {
                 predicates.add(cb.equal(root.get("customer").get("id"), customerId));
+            }
+            if (q != null && !q.isBlank()) {
+                String pattern = "%" + q.trim().toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("title")), pattern),
+                        cb.like(cb.lower(root.get("description")), pattern)));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

@@ -22,6 +22,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByTenantIdAndRole(Long tenantId, Role role);
 
+    Optional<User> findByIdAndTenantId(Long id, Long tenantId);
+
+    List<User> findByTenantIdOrderByIdAsc(Long tenantId);
+
     @Query("SELECT u FROM User u WHERE u.tenant.id = :tenantId AND u.role = 'AGENT' AND u.isActive = true")
     List<User> findActiveAgentsByTenant(@Param("tenantId") Long tenantId);
 }

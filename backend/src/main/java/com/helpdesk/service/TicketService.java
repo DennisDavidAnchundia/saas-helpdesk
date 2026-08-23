@@ -123,23 +123,24 @@ public class TicketService {
     public TicketPageResponse listForTenant(Long tenantId, TicketStatus status,
                                             TicketPriority priority, Long agentId,
                                             int page, int size) {
-        return listForCustomer(tenantId, null, status, priority, agentId, page, size);
+        return listForCustomer(tenantId, null, status, priority, agentId, page, size, null);
     }
 
     /**
      * Igual que listForTenant pero con scoping opcional por cliente:
      * si customerId != null (rol CUSTOMER) solo ve sus propios tickets.
+     * q filtra por texto libre en titulo y descripcion (case-insensitive).
      */
     @Transactional(readOnly = true)
     public TicketPageResponse listForCustomer(Long tenantId, Long customerId, TicketStatus status,
                                               TicketPriority priority, Long agentId,
-                                              int page, int size) {
+                                              int page, int size, String q) {
         Pageable pageable = PageRequest.of(
                 Math.max(page, 0),
                 Math.min(Math.max(size, 1), 100),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Ticket> result = ticketRepository.findAll(
-                TicketSpecifications.withFilters(tenantId, status, priority, agentId, customerId),
+                TicketSpecifications.withFilters(tenantId, status, priority, agentId, customerId, q),
                 pageable);
         return TicketPageResponse.of(result);
     }

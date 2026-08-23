@@ -43,13 +43,14 @@ public class TicketController {
     public TicketPageResponse list(@RequestParam(required = false) TicketStatus status,
                                    @RequestParam(required = false) TicketPriority priority,
                                    @RequestParam(required = false) Long agentId,
+                                   @RequestParam(required = false) String q,
                                    @RequestParam(defaultValue = "0") int page,
                                    @RequestParam(defaultValue = "20") int size,
                                    @AuthenticationPrincipal JwtPrincipal principal) {
         // Un CUSTOMER solo ve sus propios tickets; ADMIN/AGENT ven todo el tenant
         Long customerId = "CUSTOMER".equals(principal.getRole()) ? principal.getUserId() : null;
         return ticketService.listForCustomer(
-                principal.getTenantId(), customerId, status, priority, agentId, page, size);
+                principal.getTenantId(), customerId, status, priority, agentId, page, size, q);
     }
 
     @GetMapping("/{id}")
@@ -105,5 +106,19 @@ public class TicketController {
     public Map<String, List<Long>> presence(@PathVariable Long id,
                                             @AuthenticationPrincipal JwtPrincipal principal) {
         return Map.of("online", chatService.onlineParticipants(principal, id));
+    }
+
+    /** Mapa ticketId -> cantidad de mensajes no leidos para el usuario actual. */
+    @GetMapping("/unread")
+    public Map<Long, Long> unread(@AuthenticationPrincipal JwtPrincipal principal) {
+        return chatService.unreadCounts(principal);
+    }
+
+    /** Marca la conversacion como leida (se llama al abrir/seleccionar el ticket en el chat). */
+    @PostMapping("/{id}/read")
+    public ResponseEntity<Void> markRead(@PathVariable Long id,
+                                         @AuthenticationPrincipal JwtPrincipal principal) {
+        chatService.markRead(principal, id);
+        return ResponseEntity.noContent().build();
     }
 }
