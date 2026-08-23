@@ -284,6 +284,26 @@ class UserControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void deactivatedUserTokenIsRejectedEvenIfStillValid() throws Exception {
+        Tenant tenant = createTenant("Kill Switch Co");
+        User agent = createUser(tenant, "agente@killswitch.com", Role.AGENT);
+        String tokenDeAna = token(agent);
+
+        // Con la cuenta activa el token funciona
+        mockMvc.perform(get("/api/users/agents")
+                        .header("Authorization", "Bearer " + tokenDeAna))
+                .andExpect(status().isOk());
+
+        // Se desactiva la cuenta: el MISMO token deja de servir al instante
+        agent.setActive(false);
+        userRepository.save(agent);
+
+        mockMvc.perform(get("/api/users/agents")
+                        .header("Authorization", "Bearer " + tokenDeAna))
+                .andExpect(status().isUnauthorized());
+    }
+
     // ---------- helpers ----------
 
     private Tenant createTenant(String name) {

@@ -1,5 +1,7 @@
 package com.helpdesk.config;
 
+import com.helpdesk.model.User;
+import com.helpdesk.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,9 +20,11 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider, UserRepository userRepository) {
         this.jwtProvider = jwtProvider;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -33,9 +37,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = header.substring(7);
 
             if (jwtProvider.validateToken(token)) {
+                Long userId = jwtProvider.getUserIdFromToken(token);
+
+                // El token puede seguir siendo valido, pero si el usuario fue
+                // desactivado o borrado, no se le concede la sesion
+                User user = userRepository.findById(userId).orElse(null);
+                if (user == null || !user.isActive()) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 String email = jwtProvider.getEmailFromToken(token);
                 String role = jwtProvider.getRoleFromToken(token);
-                Long userId = jwtProvider.getUserIdFromToken(token);
                 Long tenantId = jwtProvider.getTenantIdFromToken(token);
 
                 List<SimpleGrantedAuthority> authorities = List.of(

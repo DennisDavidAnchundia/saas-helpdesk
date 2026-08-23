@@ -1,5 +1,7 @@
 package com.helpdesk.config;
 
+import com.helpdesk.model.User;
+import com.helpdesk.repository.UserRepository;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessagingException;
@@ -13,9 +15,11 @@ import org.springframework.stereotype.Component;
 public class JwtChannelInterceptor implements ChannelInterceptor {
 
     private final JwtProvider jwtProvider;
+    private final UserRepository userRepository;
 
-    public JwtChannelInterceptor(JwtProvider jwtProvider) {
+    public JwtChannelInterceptor(JwtProvider jwtProvider, UserRepository userRepository) {
         this.jwtProvider = jwtProvider;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -32,8 +36,16 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
             }
 
             String token = header.substring(7);
+            Long userId = jwtProvider.getUserIdFromToken(token);
+
+            // Igual que en el filtro HTTP: usuario desactivado no conecta
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null || !user.isActive()) {
+                throw new MessagingException("Cuenta desactivada");
+            }
+
             JwtPrincipal principal = new JwtPrincipal(
-                    jwtProvider.getUserIdFromToken(token),
+                    userId,
                     jwtProvider.getTenantIdFromToken(token),
                     jwtProvider.getEmailFromToken(token),
                     jwtProvider.getRoleFromToken(token));
