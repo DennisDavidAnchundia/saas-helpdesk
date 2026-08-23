@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../services/apiClient';
 import type {
+  AgentInfo,
   Article,
   DashboardSummary,
   Ticket,
@@ -10,9 +11,17 @@ import type {
 
 export const queryKeys = {
   tickets: ['tickets'] as const,
+  ticket: (id: number) => ['ticket', id] as const,
+  agents: ['users', 'agents'] as const,
   articles: (q?: string) => ['articles', q ?? ''] as const,
   dashboardSummary: ['dashboard', 'summary'] as const,
 };
+
+/** Invalida listados paginados + detalles tras un cambio de estado/asignacion. */
+function invalidateTicketQueries(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: queryKeys.tickets });
+  qc.invalidateQueries({ queryKey: ['ticket'] });
+}
 
 // ===================== Tickets =====================
 
@@ -52,7 +61,30 @@ export function useCreateTicket() {
       const { data } = await apiClient.post<Ticket>('/tickets', payload);
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.tickets }),
+    onSuccess: () => invalidateTicketQueries(qc),
+  });
+}
+
+/** Detalle de un ticket concreto (enabled=false mientras no haya seleccion). */
+export function useTicket(id: number | null) {
+  return useQuery({
+    queryKey: queryKeys.ticket(id ?? 0),
+    queryFn: async () => {
+      const { data } = await apiClient.get<Ticket>(`/tickets/${id}`);
+      return data;
+    },
+    enabled: id !== null,
+  });
+}
+
+export function useAgents(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.agents,
+    queryFn: async () => {
+      const { data } = await apiClient.get<AgentInfo[]>('/users/agents');
+      return data;
+    },
+    enabled,
   });
 }
 
@@ -63,7 +95,30 @@ export function useChangeTicketStatus() {
       const { data } = await apiClient.patch<Ticket>(`/tickets/${id}/status?status=${status}`);
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.tickets }),
+    onSuccess: () => invalidateTicketQueries(qc),
+  });
+}
+
+export function useAssignAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, agentId }: { id: number; agentId: number }) => {
+      const { data } = await apiClient.patch<Ticket>(`/tickets/${id}/assign/${agentId}`);
+      return data;
+    },
+    onSuccess: () => invalidateTicketQueries(qc),
+  });
+}
+
+/** Round-robin: el backend elige al agente con menos tickets activos. */
+export function useAutoAssignAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await apiClient.patch<Ticket>(`/tickets/${id}/assign`);
+      return data;
+    },
+    onSuccess: () => invalidateTicketQueries(qc),
   });
 }
 

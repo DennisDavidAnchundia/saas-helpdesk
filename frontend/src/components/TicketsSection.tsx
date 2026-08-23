@@ -2,38 +2,21 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TicketPriority, TicketStatus } from '../services/api';
 import { useChangeTicketStatus, useCreateTicket, useTickets } from '../hooks/useData';
+import TicketDetailPanel from './TicketDetailPanel';
+import { ALL_PRIORITIES, ALL_STATUSES, PRIORITY_STYLES, STATUS_STYLES, TRANSITIONS } from './ticketUi';
 
-const TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
-  OPEN: ['IN_PROGRESS', 'RESOLVED'],
-  IN_PROGRESS: ['RESOLVED'],
-  RESOLVED: ['CLOSED', 'REOPENED'],
-  CLOSED: ['REOPENED'],
-  REOPENED: ['IN_PROGRESS', 'RESOLVED'],
-};
-
-const STATUS_STYLES: Record<TicketStatus, string> = {
-  OPEN: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
-  IN_PROGRESS: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-  RESOLVED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  CLOSED: 'bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-400',
-  REOPENED: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
-};
-
-const PRIORITY_STYLES: Record<TicketPriority, string> = {
-  LOW: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-400',
-  MEDIUM: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300',
-  HIGH: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
-  URGENT: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
-};
-const ALL_STATUSES: (TicketStatus | '')[] = ['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED'];
-const ALL_PRIORITIES: (TicketPriority | '')[] = ['', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 const PAGE_SIZE = 5;
 
-export default function TicketsSection() {
+interface Props {
+  role: string;
+}
+
+export default function TicketsSection({ role }: Props) {
   const { t } = useTranslation();
   const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>('');
   const [priorityFilter, setPriorityFilter] = useState<TicketPriority | ''>('');
   const [page, setPage] = useState(0);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newPriority, setNewPriority] = useState<TicketPriority>('MEDIUM');
@@ -158,6 +141,15 @@ export default function TicketsSection() {
         </select>
       </section>
 
+      {/* Detalle del ticket seleccionado */}
+      {selectedId !== null && (
+        <TicketDetailPanel
+          ticketId={selectedId}
+          role={role}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
+
       {/* Lista de tickets */}
       <section className="space-y-3">
         <h2 className="font-display text-base font-bold tracking-tight text-slate-900 dark:text-white">
@@ -169,7 +161,12 @@ export default function TicketsSection() {
         {tickets.map((tk) => (
           <article
             key={tk.id}
-            className="group rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-500/5 sm:p-5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-500/40"
+            onClick={() => setSelectedId(selectedId === tk.id ? null : tk.id)}
+            className={`group cursor-pointer rounded-2xl border bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-brand-500/5 sm:p-5 dark:bg-white/[0.03] ${
+              selectedId === tk.id
+                ? 'border-brand-400 ring-4 ring-brand-500/15 dark:border-brand-500/60'
+                : 'border-slate-200/70 hover:border-brand-300 dark:border-white/10 dark:hover:border-brand-500/40'
+            }`}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -195,7 +192,10 @@ export default function TicketsSection() {
                 {(TRANSITIONS[tk.status] || []).map((next) => (
                   <button
                     key={next}
-                    onClick={() => statusMutation.mutate({ id: tk.id, status: next })}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      statusMutation.mutate({ id: tk.id, status: next });
+                    }}
                     className="cursor-pointer rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
                   >
                     {next}

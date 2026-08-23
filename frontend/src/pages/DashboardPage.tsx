@@ -105,7 +105,7 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
     >
       <div className="animate-fade-up space-y-6">
         {/* ===================== TICKETS ===================== */}
-        {tab === 'tickets' && <TicketsSection />}
+        {tab === 'tickets' && <TicketsSection role={role} />}
 
         {tab === 'articles' && <ArticlesPanel role={role} />}
         {tab === 'chat' && <ChatPanel token={token} tickets={tickets} />}
