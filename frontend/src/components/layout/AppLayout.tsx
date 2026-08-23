@@ -63,21 +63,22 @@ export default function AppLayout({
 }: AppLayoutProps) {
   const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [passOpen, setPassOpen] = useState(false);
+  const [passModalOpen, setPassModalOpen] = useState(false);
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
-  const [passSaved, setPassSaved] = useState(false);
   const changePassMutation = useChangeOwnPassword();
+
+  const closePassModal = () => {
+    setPassModalOpen(false);
+    setCurrentPass('');
+    setNewPass('');
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPassSaved(false);
     try {
       await changePassMutation.mutateAsync({ currentPassword: currentPass, newPassword: newPass });
-      setCurrentPass('');
-      setNewPass('');
-      setPassOpen(false);
-      setPassSaved(true);
+      closePassModal();
     } catch {
       /* el error ya vive en la mutacion */
     }
@@ -140,7 +141,7 @@ export default function AppLayout({
         </div>
         <button
           type="button"
-          onClick={() => { setPassOpen((v) => !v); setPassSaved(false); }}
+          onClick={() => setPassModalOpen(true)}
           title={t('layout.changePassword')}
           className="cursor-pointer rounded-lg p-2 text-slate-400 transition-colors hover:bg-brand-50 hover:text-brand-500 dark:hover:bg-brand-500/10"
         >
@@ -157,41 +158,6 @@ export default function AppLayout({
           <LogoutIcon className="text-base" />
         </button>
       </div>
-
-      {passOpen && (
-        <form onSubmit={handleChangePassword} className="mt-3 space-y-2 border-t border-slate-200/70 pt-3 dark:border-white/10">
-          <input
-            type="password"
-            value={currentPass}
-            onChange={(e) => setCurrentPass(e.target.value)}
-            placeholder={t('layout.currentPassword')}
-            required
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
-          />
-          <input
-            type="password"
-            value={newPass}
-            onChange={(e) => setNewPass(e.target.value)}
-            placeholder={t('layout.newPassword')}
-            required
-            minLength={8}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
-          />
-          {changePassMutation.error && (
-            <p className="text-xs text-red-600 dark:text-red-400">{changePassMutation.error.message}</p>
-          )}
-          <button
-            type="submit"
-            disabled={changePassMutation.isPending || newPass.length < 8}
-            className="w-full cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-3 py-2 text-xs font-semibold text-white transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t('layout.savePassword')}
-          </button>
-        </form>
-      )}
-      {passSaved && !changePassMutation.error && (
-        <p className="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">✓ {t('layout.passwordChanged')}</p>
-      )}
     </div>
   );
 
@@ -261,6 +227,67 @@ export default function AppLayout({
 
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
+
+      {/* ===== Modal cambio de contrasena ===== */}
+      {passModalOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+            onClick={closePassModal}
+          />
+          <form
+            onSubmit={handleChangePassword}
+            className="animate-fade-up relative w-full max-w-sm rounded-3xl border border-slate-200/80 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#12121e]"
+          >
+            <button
+              type="button"
+              onClick={closePassModal}
+              className="absolute right-4 top-4 cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-slate-200"
+            >
+              <CloseIcon />
+            </button>
+            <h2 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+              {t('layout.changePassword')}
+            </h2>
+            <p className="mt-1 text-xs text-slate-400">
+              {t('layout.changePasswordHint')}
+            </p>
+            <div className="mt-5 space-y-3">
+              <input
+                type="password"
+                value={currentPass}
+                onChange={(e) => setCurrentPass(e.target.value)}
+                placeholder={t('layout.currentPassword')}
+                required
+                autoFocus
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              />
+              <input
+                type="password"
+                value={newPass}
+                onChange={(e) => setNewPass(e.target.value)}
+                placeholder={t('layout.newPassword')}
+                required
+                minLength={8}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              />
+              <p className="text-[11px] text-slate-400">{t('layout.minChars')}</p>
+            </div>
+            {changePassMutation.error && (
+              <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-500/10 dark:text-red-400">
+                {changePassMutation.error.message}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={changePassMutation.isPending || newPass.length < 8}
+              className="mt-5 w-full cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {changePassMutation.isPending ? t('common.saving') : t('layout.savePassword')}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
