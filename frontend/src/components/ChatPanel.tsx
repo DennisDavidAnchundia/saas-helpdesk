@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Client, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { getMessages, getPresence, type ChatMessage, type Ticket } from '../services/api';
+import { getMessages, getPresence, type ChatMessage, type Ticket, type TicketStatus } from '../services/api';
+import { useChangeTicketStatus, useMarkTicketRead, useUnreadCounts } from '../hooks/useData';
+import { decodeJwt } from '../lib/jwt';
+import { STATUS_STYLES, TRANSITIONS } from './ticketUi';
 
 interface Props {
   token: string;
@@ -11,19 +14,12 @@ interface Props {
   focusTicketId?: number | null;
 }
 
-function decodeJwt(token: string): { tenantId?: number; userId?: number } {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return {};
-  }
-}
-
 export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
   const { t, i18n } = useTranslation();
   const payload = decodeJwt(token);
   const tenantId = payload.tenantId;
   const userId = Number(payload.userId);
+  const role = payload.role;
 
   const [selectedId, setSelectedId] = useState<number | null>(tickets[0]?.id ?? null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -31,6 +27,22 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
   const [connected, setConnected] = useState(false);
   const [onlineIds, setOnlineIds] = useState<number[]>([]);
   const [error, setError] = useState('');
+
+  const statusMutation = useChangeTicketStatus();
+  const markReadMutation = useMarkTicketRead();
+  const unreadQuery = useUnreadCounts(token);
+  const unreadMap = unreadQuery.data ?? {};
+  const selectedTicket = tickets.find((tk) => tk.id === selectedId) ?? null;
+  const canResolve =
+    role !== 'CUSTOMER' &&
+    selectedTicket != null &&
+    (TRANSITIONS[selectedTicket.status as TicketStatus] ?? []).includes('RESOLVED');
+
+  // Ref para usar la mutacion desde el callback del WebSocket sin closures viejas
+  const markReadRef = useRef(markReadMutation);
+  useEffect(() => {
+    markReadRef.current = markReadMutation;
+  }, [markReadMutation]);
 
   const clientRef = useRef<Client | null>(null);
   const subRef = useRef<{ unsubscribe: () => void } | null>(null);
@@ -45,6 +57,12 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
   useEffect(() => {
     if (focusTicketId != null) setSelectedId(focusTicketId);
   }, [focusTicketId]);
+
+  // Abrir una conversacion implica leerla
+  useEffect(() => {
+    if (selectedId) markReadMutation.mutate(selectedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -87,6 +105,8 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
         const msg = JSON.parse(m.body) as ChatMessage;
         if (msg.ticketId === selectedRef.current) {
           setMessages((prev) => (prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+          // Estamos viendo esta conversacion: queda leida al instante
+          markReadRef.current.mutate(msg.ticketId);
         }
       } catch { /* ignore */ }
     }
@@ -161,22 +181,68 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
         <p className="py-8 text-center text-sm text-slate-400">{t('chat.needTicket')}</p>
       ) : (
         <>
-          <select
-            value={selectedId ?? ''}
-            onChange={(e) => setSelectedId(Number(e.target.value))}
-            className="mb-4 w-full cursor-pointer rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition-shadow focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white"
-          >
-            {tickets.map((tk) => (
-              <option key={tk.id} value={tk.id}>
-                #{tk.id} · {tk.title} ({tk.status})
-              </option>
-            ))}
-          </select>
+          <div className="mb-4 max-h-44 space-y-1.5 overflow-y-auto pr-1">
+            {tickets.map((tk) => {
+              const unread = Number(unreadMap[String(tk.id)] ?? 0);
+              const active = tk.id === selectedId;
+              return (
+                <button
+                  key={tk.id}
+                  type="button"
+                  onClick={() => setSelectedId(tk.id)}
+                  className={`flex w-full cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                    active
+                      ? 'border-brand-300 bg-brand-50/70 dark:border-brand-500/40 dark:bg-brand-500/10'
+                      : 'border-slate-200/70 bg-white hover:border-brand-200 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-500/30'
+                  }`}
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">#{tk.id}</span>{' '}
+                    <span className="text-slate-500 dark:text-slate-400">{tk.title}</span>
+                  </span>
+                  {unread > 0 && (
+                    <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                      {unread > 99 ? '99+' : unread}
+                    </span>
+                  )}
+                  <span
+                    className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                      STATUS_STYLES[tk.status as TicketStatus] ?? ''
+                    }`}
+                  >
+                    {tk.status}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
           {error && (
             <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
               {error}
             </div>
+          )}
+
+          {canResolve && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-3 py-2 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+              <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                #{selectedTicket!.id} · {selectedTicket!.status}
+              </span>
+              <button
+                type="button"
+                onClick={() => statusMutation.mutate({ id: selectedTicket!.id, status: 'RESOLVED' })}
+                disabled={statusMutation.isPending}
+                title={t('chat.resolveHint')}
+                className="cursor-pointer rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ✓ {t('chat.resolve')}
+              </button>
+            </div>
+          )}
+          {statusMutation.error && (
+            <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-500/10 dark:text-red-400">
+              {statusMutation.error.message}
+            </p>
           )}
 
           <div className="h-80 space-y-2 overflow-y-auto rounded-xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-black/20">

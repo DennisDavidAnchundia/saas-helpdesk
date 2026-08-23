@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TicketPriority, TicketStatus } from '../services/api';
 import { useChangeTicketStatus, useCreateTicket, useTickets } from '../hooks/useData';
+import { decodeJwt } from '../lib/jwt';
 import TicketDetailPanel from './TicketDetailPanel';
 import { ALL_PRIORITIES, ALL_STATUSES, PRIORITY_STYLES, STATUS_STYLES, TRANSITIONS } from './ticketUi';
 
@@ -9,23 +10,39 @@ const PAGE_SIZE = 5;
 
 interface Props {
   role: string;
+  token: string;
   /** Salta al chat del ticket indicado (lo provee DashboardPage) */
   onOpenChat?: (ticketId: number) => void;
 }
 
-export default function TicketsSection({ role, onOpenChat }: Props) {
+export default function TicketsSection({ role, token, onOpenChat }: Props) {
   const { t } = useTranslation();
+  const myUserId = Number(decodeJwt(token).userId);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>('');
   const [priorityFilter, setPriorityFilter] = useState<TicketPriority | ''>('');
+  const [searchText, setSearchText] = useState('');
+  const [search, setSearch] = useState('');
+  const [onlyMine, setOnlyMine] = useState(false);
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newPriority, setNewPriority] = useState<TicketPriority>('MEDIUM');
 
+  // Debounce del buscador: no pegamos al servidor por cada tecla
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setSearch(searchText.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchText]);
+
   const ticketsQuery = useTickets({
     status: statusFilter || undefined,
     priority: priorityFilter || undefined,
+    agentId: onlyMine ? myUserId : undefined,
+    q: search || undefined,
     page,
     size: PAGE_SIZE,
   });
@@ -127,20 +144,41 @@ export default function TicketsSection({ role, onOpenChat }: Props) {
             {s || t('tickets.all')}
           </button>
         ))}
-        <select
-          value={priorityFilter}
-          onChange={(e) => changeFilter(() => setPriorityFilter(e.target.value as TicketPriority | ''))}
-          className={`ml-auto cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold outline-none ${
-            priorityFilter
-              ? 'border-brand-400 bg-brand-50 text-brand-600 dark:border-brand-500/40 dark:bg-brand-500/15 dark:text-brand-300'
-              : 'border-slate-200/70 bg-white text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400'
-          }`}
-        >
-          <option value="">{t('tickets.allPriorities')}</option>
-          {ALL_PRIORITIES.filter(Boolean).map((p) => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
+        <div className="ml-auto flex items-center gap-2">
+          <input
+            type="search"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder={t('tickets.searchPlaceholder')}
+            className="w-44 rounded-full border border-slate-200/70 bg-white px-3.5 py-1.5 text-xs outline-none transition-shadow placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 sm:w-56 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
+          />
+          <button
+            type="button"
+            onClick={() => changeFilter(() => setOnlyMine((v) => !v))}
+            title={t('tickets.onlyMineHint')}
+            className={`cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+              onlyMine
+                ? 'border-brand-400 bg-gradient-to-r from-brand-500 to-violet-500 text-white shadow-md shadow-brand-500/25'
+                : 'border-slate-200/70 bg-white text-slate-500 hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:text-brand-300'
+            }`}
+          >
+            {t('tickets.onlyMine')}
+          </button>
+          <select
+            value={priorityFilter}
+            onChange={(e) => changeFilter(() => setPriorityFilter(e.target.value as TicketPriority | ''))}
+            className={`cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold outline-none ${
+              priorityFilter
+                ? 'border-brand-400 bg-brand-50 text-brand-600 dark:border-brand-500/40 dark:bg-brand-500/15 dark:text-brand-300'
+                : 'border-slate-200/70 bg-white text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400'
+            }`}
+          >
+            <option value="">{t('tickets.allPriorities')}</option>
+            {ALL_PRIORITIES.filter(Boolean).map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
       </section>
 
       {/* Detalle del ticket seleccionado */}

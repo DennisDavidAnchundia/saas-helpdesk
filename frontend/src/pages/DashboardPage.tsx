@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { testEndpoint } from '../services/api';
-import { useTickets } from '../hooks/useData';
+import { useTickets, useUnreadCounts } from '../hooks/useData';
 import AppLayout from '../components/layout/AppLayout';
 import type { NavItem } from '../components/layout/AppLayout';
 import {
@@ -53,6 +53,8 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
   // Lista sin filtros para el selector de chat y el badge del sidebar
   const ticketsQuery = useTickets();
   const tickets = ticketsQuery.data?.content ?? [];
+  const unreadQuery = useUnreadCounts(token);
+  const totalUnread = Object.values(unreadQuery.data ?? {}).reduce((acc, n) => acc + Number(n), 0);
 
   const baseNavItems: NavItem[] =
     role === 'CUSTOMER'
@@ -75,11 +77,13 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
           { id: 'tests', label: t('nav.tests'), icon: <FlaskIcon /> },
         ];
 
-  // Badge con la cantidad de tickets abiertos
+  // Badges: tickets abiertos en "Tickets" y mensajes sin leer en "Chat"
   const openCount = tickets.filter((t) => t.status === 'OPEN' || t.status === 'REOPENED').length;
-  const navItems = baseNavItems.map((item) =>
-    item.id === 'tickets' && openCount > 0 ? { ...item, badge: String(openCount) } : item,
-  );
+  const navItems = baseNavItems.map((item) => {
+    if (item.id === 'tickets' && openCount > 0) return { ...item, badge: String(openCount) };
+    if (item.id === 'chat' && totalUnread > 0) return { ...item, badge: String(totalUnread > 99 ? '99+' : totalUnread) };
+    return item;
+  });
 
   const ENDPOINTS = [
     { path: '/api/test/admin', label: t('tests.adminOnly') },
@@ -125,7 +129,7 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
     >
       <div className="animate-fade-up space-y-6">
         {/* ===================== TICKETS ===================== */}
-        {tab === 'tickets' && (role === 'CUSTOMER' ? <CustomerPortal onOpenChat={handleOpenChat} /> : <TicketsSection role={role} onOpenChat={handleOpenChat} />)}
+        {tab === 'tickets' && (role === 'CUSTOMER' ? <CustomerPortal onOpenChat={handleOpenChat} /> : <TicketsSection role={role} token={token} onOpenChat={handleOpenChat} />)}
 
         {tab === 'articles' && <ArticlesPanel role={role} />}
         {tab === 'chat' && <ChatPanel token={token} tickets={tickets} focusTicketId={chatFocusId} />}

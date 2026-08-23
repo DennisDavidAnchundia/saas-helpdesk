@@ -33,6 +33,9 @@ function invalidateTicketQueries(qc: ReturnType<typeof useQueryClient>) {
 export interface TicketFilters {
   status?: TicketStatus;
   priority?: TicketPriority;
+  agentId?: number;
+  /** Busqueda de texto libre en titulo/descripcion */
+  q?: string;
   page?: number;
   size?: number;
 }
@@ -46,12 +49,12 @@ export interface TicketPage {
 }
 
 export function useTickets(filters: TicketFilters = {}) {
-  const { status, priority, page, size } = filters;
+  const { status, priority, agentId, q, page, size } = filters;
   return useQuery({
-    queryKey: [...queryKeys.tickets, status ?? '', priority ?? '', page ?? 0, size ?? ''] as const,
+    queryKey: [...queryKeys.tickets, status ?? '', priority ?? '', agentId ?? '', q ?? '', page ?? 0, size ?? ''] as const,
     queryFn: async () => {
       const { data } = await apiClient.get<TicketPage>('/tickets', {
-        params: { status, priority, page, size },
+        params: { status, priority, agentId, q: q || undefined, page, size },
       });
       return data;
     },
@@ -124,6 +127,32 @@ export function useAutoAssignAgent() {
       return data;
     },
     onSuccess: () => invalidateTicketQueries(qc),
+  });
+}
+
+// ===================== Chat: no leidos =====================
+
+/** Mapa ticketId -> mensajes no leidos. Se refresca solo y tras cada invalidacion. */
+export function useUnreadCounts(token: string) {
+  return useQuery({
+    queryKey: ['chat', 'unread'] as const,
+    queryFn: async () => {
+      const { data } = await apiClient.get<Record<string, number>>('/tickets/unread');
+      return data;
+    },
+    refetchInterval: 15_000,
+    enabled: !!token,
+  });
+}
+
+export function useMarkTicketRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ticketId: number) => {
+      await apiClient.post(`/tickets/${ticketId}/read`);
+      return true;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat', 'unread'] }),
   });
 }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   useAgents,
@@ -18,8 +18,27 @@ interface Props {
   onOpenChat?: (ticketId: number) => void;
 }
 
+/** "4h 12m" a partir de una diferencia en milisegundos (se muestra con signo aparte). */
+function humanizeDuration(diffMs: number): string {
+  const abs = Math.abs(diffMs);
+  const h = Math.floor(abs / 3_600_000);
+  const m = Math.floor((abs % 3_600_000) / 60_000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** Reloj para el chip de SLA: hace viva la cuenta regresiva sin impurezas en render. */
+function useNow(intervalMs = 60_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
 export default function TicketDetailPanel({ ticketId, role, onClose, onOpenChat }: Props) {
   const { t, i18n } = useTranslation();
+  const now = useNow();
   const [selectedAgent, setSelectedAgent] = useState('');
   const ticketQuery = useTicket(ticketId);
   // El endpoint de agentes es solo ADMIN/AGENT: no lo llamamos para CUSTOMER
@@ -97,11 +116,30 @@ export default function TicketDetailPanel({ ticketId, role, onClose, onOpenChat 
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_STYLES[tk.priority]}`}>
             {tk.priority}
           </span>
-          {tk.slaBreached && (
-            <span className="animate-pulse-dot rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white">
-              {t('tickets.slaBreached')}
-            </span>
-          )}
+          {(() => {
+            // Chip de SLA con cuenta regresiva solo mientras el ticket sigue abierto
+            const open = tk.status === 'OPEN' || tk.status === 'IN_PROGRESS' || tk.status === 'REOPENED';
+            if (!open || !tk.slaDueAt) return null;
+            const diffMs = new Date(tk.slaDueAt).getTime() - now;
+            const overdue = !!tk.slaBreached || diffMs < 0;
+            const soon = !overdue && diffMs < 2 * 60 * 60 * 1000;
+            return (
+              <span
+                title={new Date(tk.slaDueAt).toLocaleString('es')}
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  overdue
+                    ? 'animate-pulse-dot bg-red-600 text-white'
+                    : soon
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                }`}
+              >
+                {overdue
+                  ? t('tickets.overdueBy', { time: humanizeDuration(diffMs) })
+                  : t('tickets.dueIn', { time: humanizeDuration(diffMs) })}
+              </span>
+            );
+          })()}
         </div>
         <button
           onClick={onClose}

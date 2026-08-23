@@ -282,6 +282,22 @@ export async function getPresence(token: string, ticketId: number): Promise<numb
   return data.online ?? [];
 }
 
+/** Mapa ticketId -> mensajes no leidos para el usuario del token. */
+export async function getUnreadCounts(token: string): Promise<Record<string, number>> {
+  const res = await fetch(`${API}/api/tickets/unread`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return {};
+  return res.json();
+}
+
+export async function markTicketRead(token: string, ticketId: number): Promise<void> {
+  await fetch(`${API}/api/tickets/${ticketId}/read`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export interface AgentStat {
   agentName: string;
   assignedTickets: number;
