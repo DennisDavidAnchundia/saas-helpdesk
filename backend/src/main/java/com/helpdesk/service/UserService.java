@@ -67,6 +67,21 @@ public class UserService {
     }
 
     /**
+     * Reset de contraseña de un agente (el admin le deja una temporal).
+     * Misma politica que el toggle: solo agentes del propio tenant.
+     */
+    @Transactional
+    public void resetAgentPassword(Long tenantId, Long userId, String newPassword) {
+        User user = userRepository.findByIdAndTenantId(userId, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado en esta empresa"));
+        if (user.getRole() != Role.AGENT) {
+            throw new IllegalArgumentException("Solo se puede resetear la contrasena de agentes");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    /**
      * Activa o desactiva un usuario del tenant. Por politica solo se
      * permiten toggles sobre AGENT: admins y customers no se tocan aqui.
      */

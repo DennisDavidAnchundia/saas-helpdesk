@@ -304,6 +304,101 @@ class UserControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void userChangesOwnPasswordAndOldOneStopsWorking() throws Exception {
+        Tenant tenant = createTenant("Pass Co");
+        User agent = createUser(tenant, "agente@pass.com", Role.AGENT);
+
+        // Contraseña actual incorrecta -> rechazado
+        mockMvc.perform(patch("/api/auth/password")
+                        .header("Authorization", "Bearer " + token(agent))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"equivocada\",\"newPassword\":\"nueva12345\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Cambio correcto
+        mockMvc.perform(patch("/api/auth/password")
+                        .header("Authorization", "Bearer " + token(agent))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"password123\",\"newPassword\":\"nueva12345\"}"))
+                .andExpect(status().isNoContent());
+
+        // La vieja ya no sirve y la nueva si
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"agente@pass.com\",\"password\":\"password123\",\"tenantSlug\":\"" + tenant.getSlug() + "\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"agente@pass.com\",\"password\":\"nueva12345\",\"tenantSlug\":\"" + tenant.getSlug() + "\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void changePasswordRejectsWeakNewPassword() throws Exception {
+        Tenant tenant = createTenant("Weak Co");
+        User agent = createUser(tenant, "agente@weak.com", Role.AGENT);
+
+        mockMvc.perform(patch("/api/auth/password")
+                        .header("Authorization", "Bearer " + token(agent))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"password123\",\"newPassword\":\"corta\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void adminResetsAgentPassword() throws Exception {
+        Tenant tenant = createTenant("Reset Co");
+        User admin = createUser(tenant, "admin@reset.com", Role.ADMIN);
+        User agent = createUser(tenant, "agente@reset.com", Role.AGENT);
+
+        mockMvc.perform(patch("/api/users/" + agent.getId() + "/password")
+                        .header("Authorization", "Bearer " + token(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newPassword\":\"temporal999\"}"))
+                .andExpect(status().isNoContent());
+
+        // Login con la temporal del admin
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"agente@reset.com\",\"password\":\"temporal999\",\"tenantSlug\":\"" + tenant.getSlug() + "\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void resetOnlyWorksForAgentsOfOwnTenant() throws Exception {
+        Tenant tenantA = createTenant("Reset A");
+        Tenant tenantB = createTenant("Reset B");
+        User admin = createUser(tenantA, "admin@reseta.com", Role.ADMIN);
+        User customer = createUser(tenantA, "cliente@reseta.com", Role.CUSTOMER);
+        User agentB = createUser(tenantB, "agenteb@resetb.com", Role.AGENT);
+
+        // Customer del propio tenant -> rechazado por politica
+        mockMvc.perform(patch("/api/users/" + customer.getId() + "/password")
+                        .header("Authorization", "Bearer " + token(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newPassword\":\"temporal999\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Agente de otro tenant -> no encontrado para este admin
+        mockMvc.perform(patch("/api/users/" + agentB.getId() + "/password")
+                        .header("Authorization", "Bearer " + token(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newPassword\":\"temporal999\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void unauthenticatedCannotChangeOwnPassword() throws Exception {
+        // /api/auth/** es permitAll a nivel de filtro, pero @PreAuthorize
+        // isAuthenticated lanza AccessDenied -> 403 para anonimos
+        mockMvc.perform(patch("/api/auth/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"x\",\"newPassword\":\"y12345678\"}"))
+                .andExpect(status().isForbidden());
+    }
+
     // ---------- helpers ----------
 
     private Tenant createTenant(String name) {

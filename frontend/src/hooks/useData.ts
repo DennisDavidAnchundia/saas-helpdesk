@@ -155,6 +155,24 @@ export function useCreateUser() {
   });
 }
 
+export function useChangeOwnPassword() {
+  return useMutation({
+    mutationFn: async ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => {
+      await apiClient.patch('/auth/password', { currentPassword, newPassword });
+      return true;
+    },
+  });
+}
+
+export function useResetUserPassword() {
+  return useMutation({
+    mutationFn: async ({ id, newPassword }: { id: number; newPassword: string }) => {
+      await apiClient.patch(`/users/${id}/password`, { newPassword });
+      return true;
+    },
+  });
+}
+
 export function useSetUserActive() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useChangeOwnPassword } from '../../hooks/useData';
 import ThemeToggle from './ThemeToggle';
 import LanguageSwitcher from './LanguageSwitcher';
 import {
@@ -62,6 +63,25 @@ export default function AppLayout({
 }: AppLayoutProps) {
   const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [passOpen, setPassOpen] = useState(false);
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [passSaved, setPassSaved] = useState(false);
+  const changePassMutation = useChangeOwnPassword();
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassSaved(false);
+    try {
+      await changePassMutation.mutateAsync({ currentPassword: currentPass, newPassword: newPass });
+      setCurrentPass('');
+      setNewPass('');
+      setPassOpen(false);
+      setPassSaved(true);
+    } catch {
+      /* el error ya vive en la mutacion */
+    }
+  };
 
   const activeItem = items.find((i) => i.id === activeId);
 
@@ -120,6 +140,16 @@ export default function AppLayout({
         </div>
         <button
           type="button"
+          onClick={() => { setPassOpen((v) => !v); setPassSaved(false); }}
+          title={t('layout.changePassword')}
+          className="cursor-pointer rounded-lg p-2 text-slate-400 transition-colors hover:bg-brand-50 hover:text-brand-500 dark:hover:bg-brand-500/10"
+        >
+          <svg className="text-base" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" width="1em" height="1em">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+          </svg>
+        </button>
+        <button
+          type="button"
           onClick={onLogout}
           title={t('layout.logout')}
           className="cursor-pointer rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
@@ -127,6 +157,41 @@ export default function AppLayout({
           <LogoutIcon className="text-base" />
         </button>
       </div>
+
+      {passOpen && (
+        <form onSubmit={handleChangePassword} className="mt-3 space-y-2 border-t border-slate-200/70 pt-3 dark:border-white/10">
+          <input
+            type="password"
+            value={currentPass}
+            onChange={(e) => setCurrentPass(e.target.value)}
+            placeholder={t('layout.currentPassword')}
+            required
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+          />
+          <input
+            type="password"
+            value={newPass}
+            onChange={(e) => setNewPass(e.target.value)}
+            placeholder={t('layout.newPassword')}
+            required
+            minLength={8}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+          />
+          {changePassMutation.error && (
+            <p className="text-xs text-red-600 dark:text-red-400">{changePassMutation.error.message}</p>
+          )}
+          <button
+            type="submit"
+            disabled={changePassMutation.isPending || newPass.length < 8}
+            className="w-full cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-3 py-2 text-xs font-semibold text-white transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t('layout.savePassword')}
+          </button>
+        </form>
+      )}
+      {passSaved && !changePassMutation.error && (
+        <p className="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">✓ {t('layout.passwordChanged')}</p>
+      )}
     </div>
   );
 

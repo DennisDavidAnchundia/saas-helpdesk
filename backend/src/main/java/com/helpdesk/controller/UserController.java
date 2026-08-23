@@ -3,11 +3,13 @@ package com.helpdesk.controller;
 import com.helpdesk.config.JwtPrincipal;
 import com.helpdesk.dto.AgentResponse;
 import com.helpdesk.dto.CreateUserRequest;
+import com.helpdesk.dto.ResetPasswordRequest;
 import com.helpdesk.dto.UpdateUserActiveRequest;
 import com.helpdesk.dto.UserResponse;
 import com.helpdesk.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -55,5 +57,15 @@ public class UserController {
                                   @AuthenticationPrincipal JwtPrincipal principal) {
         return userService.setUserActive(
                 principal.getTenantId(), id, Boolean.TRUE.equals(request.getIsActive()));
+    }
+
+    /** Reset de contraseña de un agente (panel admin). */
+    @PatchMapping("/{id}/password")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> resetPassword(@PathVariable Long id,
+                                              @Valid @RequestBody ResetPasswordRequest request,
+                                              @AuthenticationPrincipal JwtPrincipal principal) {
+        userService.resetAgentPassword(principal.getTenantId(), id, request.getNewPassword());
+        return ResponseEntity.noContent().build();
     }
 }

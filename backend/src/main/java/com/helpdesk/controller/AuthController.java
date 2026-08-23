@@ -1,5 +1,7 @@
 package com.helpdesk.controller;
 
+import com.helpdesk.config.JwtPrincipal;
+import com.helpdesk.dto.ChangePasswordRequest;
 import com.helpdesk.dto.JoinRequest;
 import com.helpdesk.dto.LoginRequest;
 import com.helpdesk.dto.LoginResponse;
@@ -9,6 +11,8 @@ import com.helpdesk.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -38,5 +42,14 @@ public class AuthController {
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(response);
+    }
+
+    /** Cambio de contrasena propia (requiere la actual). */
+    @PatchMapping("/password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> changeOwnPassword(@Valid @RequestBody ChangePasswordRequest request,
+                                                  @AuthenticationPrincipal JwtPrincipal principal) {
+        authService.changeOwnPassword(principal.getUserId(), request);
+        return ResponseEntity.noContent().build();
     }
 }

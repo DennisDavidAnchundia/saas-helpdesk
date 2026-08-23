@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SlaPolicy, UserInfo, UserRole } from '../services/api';
 import {
   useCreateUser,
+  useResetUserPassword,
   useSetUserActive,
   useSlaPolicy,
   useUpdateSlaPolicy,
@@ -31,6 +32,11 @@ export default function AdminPanel() {
   const [password, setPassword] = useState('');
   const [createdNote, setCreatedNote] = useState(false);
 
+  const resetMutation = useResetUserPassword();
+  const [resetFor, setResetFor] = useState<number | null>(null);
+  const [resetValue, setResetValue] = useState('');
+  const [resetDone, setResetDone] = useState<number | null>(null);
+
   // Sincroniza el formulario cuando llegan los datos del servidor
   useEffect(() => {
     if (slaQuery.data) setSlaForm(slaQuery.data);
@@ -47,6 +53,17 @@ export default function AdminPanel() {
     setSavedNote(false);
     try {
       await toggleMutation.mutateAsync({ id: u.id, isActive: !u.active });
+    } catch {
+      /* el error ya vive en la mutacion */
+    }
+  };
+
+  const handleResetPassword = async (u: UserInfo) => {
+    try {
+      await resetMutation.mutateAsync({ id: u.id, newPassword: resetValue });
+      setResetFor(null);
+      setResetValue('');
+      setResetDone(u.id);
     } catch {
       /* el error ya vive en la mutacion */
     }
@@ -182,17 +199,56 @@ export default function AdminPanel() {
                 {u.active ? t('admin.active') : t('admin.inactive')}
               </span>
               {u.role === 'AGENT' && (
-                <button
-                  onClick={() => handleToggle(u)}
-                  disabled={toggleMutation.isPending}
-                  className={`cursor-pointer rounded-xl border px-3 py-1.5 text-[11px] font-semibold transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
-                    u.active
-                      ? 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-300 dark:hover:bg-red-500/10'
-                      : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-500/10'
-                  }`}
+                <>
+                  <button
+                    onClick={() => { setResetFor(resetFor === u.id ? null : u.id); setResetValue(''); setResetDone(null); }}
+                    title={t('admin.resetPass')}
+                    className="cursor-pointer rounded-xl border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-500 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
+                  >
+                    🔑
+                  </button>
+                  <button
+                    onClick={() => handleToggle(u)}
+                    disabled={toggleMutation.isPending}
+                    className={`cursor-pointer rounded-xl border px-3 py-1.5 text-[11px] font-semibold transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      u.active
+                        ? 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-300 dark:hover:bg-red-500/10'
+                        : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-500/10'
+                    }`}
+                  >
+                    {u.active ? t('admin.deactivate') : t('admin.activate')}
+                  </button>
+                </>
+              )}
+              {resetFor === u.id && (
+                <form
+                  onSubmit={(e) => { e.preventDefault(); handleResetPassword(u); }}
+                  className="animate-fade-up flex w-full flex-wrap items-center gap-2 pl-12"
                 >
-                  {u.active ? t('admin.deactivate') : t('admin.activate')}
-                </button>
+                  <input
+                    value={resetValue}
+                    onChange={(e) => setResetValue(e.target.value)}
+                    placeholder={t('admin.newTempPassword')}
+                    required
+                    minLength={8}
+                    className="min-w-48 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  />
+                  <button
+                    type="submit"
+                    disabled={resetMutation.isPending || resetValue.length < 8}
+                    className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-4 py-2 text-xs font-semibold text-white transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {t('admin.resetSave')}
+                  </button>
+                  {resetMutation.error && (
+                    <span className="text-xs text-red-600 dark:text-red-400">{resetMutation.error.message}</span>
+                  )}
+                </form>
+              )}
+              {resetDone === u.id && (
+                <p className="w-full pl-12 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                  ✓ {t('admin.resetSaved')}
+                </p>
               )}
             </li>
           ))}

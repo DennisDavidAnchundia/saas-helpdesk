@@ -1,6 +1,7 @@
 package com.helpdesk.service;
 
 import com.helpdesk.config.JwtProvider;
+import com.helpdesk.dto.ChangePasswordRequest;
 import com.helpdesk.dto.JoinRequest;
 import com.helpdesk.dto.LoginRequest;
 import com.helpdesk.dto.LoginResponse;
@@ -136,6 +137,27 @@ public class AuthService {
                 tenant.getId(),
                 tenant.getName()
         );
+    }
+
+    /**
+     * Cambio de contraseña propia. Requiere la actual para confirmar identidad;
+     * las cuentas de Google (sin password local) no pueden usar este flujo.
+     */
+    @Transactional
+    public void changeOwnPassword(Long userId, ChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        if (user.getPassword() == null) {
+            throw new IllegalArgumentException(
+                    "Esta cuenta inicia sesion con Google y no tiene contrasena local");
+        }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("La contrasena actual no es correcta");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     private String generateSlug(String name) {
