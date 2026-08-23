@@ -85,6 +85,8 @@ const resources = {
         assigning: 'Asignando…',
         autoAssign: 'Auto-asignar',
         noAgents: 'Sin agentes activos para asignar.',
+        loadingAgents: 'Cargando agentes…',
+        agentsError: 'No se pudieron cargar los agentes',
       },
       articles: {
         title: 'Base de Conocimiento',
@@ -284,6 +286,8 @@ const resources = {
         assigning: 'Assigning…',
         autoAssign: 'Auto-assign',
         noAgents: 'No active agents to assign.',
+        loadingAgents: 'Loading agents…',
+        agentsError: 'Could not load agents',
       },
       articles: {
         title: 'Knowledge Base',

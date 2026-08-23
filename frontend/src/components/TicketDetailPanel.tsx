@@ -148,7 +148,13 @@ export default function TicketDetailPanel({ ticketId, role, onClose }: Props) {
 
         {canManage && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {agentsQuery.data && agentsQuery.data.length > 0 ? (
+            {agentsQuery.isLoading ? (
+              <span className="text-xs text-slate-400">{t('tickets.loadingAgents')}</span>
+            ) : agentsQuery.error ? (
+              <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                {t('tickets.agentsError')}: {agentsQuery.error.message}
+              </span>
+            ) : agentsQuery.data && agentsQuery.data.length > 0 ? (
               <>
                 <select
                   value={selectedAgent}

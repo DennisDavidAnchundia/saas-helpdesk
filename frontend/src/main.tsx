@@ -12,7 +12,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      refetchOnWindowFocus: false,
+      // Al volver a una pestana, refresca lo que lleve mas de staleTime viejo:
+      // evita ver datos desactualizados tras crear cosas en otra sesion/pestana
+      refetchOnWindowFocus: true,
       staleTime: 15_000,
     },
   },
