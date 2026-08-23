@@ -38,3 +38,11 @@ app:
     expiration: 86400000
   cors:
     allowed-origins: http://localhost:5173
+
+stripe:
+  secret-key: sk_test_placeholder_for_tests
+  webhook-secret: whsec_test_secret_123
+  price-pro: price_test_pro
+  price-enterprise: price_test_enterprise
+  success-url: http://localhost:5173/billing/success
+  cancel-url: http://localhost:5173/
