@@ -1,0 +1,34 @@
+# HTTPS automatico (Let's Encrypt) + proxy al frontend y backend.
+# La variable DOMAIN viene del entorno del contenedor caddy.
+
+{$DOMAIN} {
+	encode gzip zstd
+
+	# API REST
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	# WebSocket del chat (SockJS hace fallback a xhr si hiciera falta)
+	handle /ws/* {
+		reverse_proxy backend:8080
+	}
+
+	# Health check (monitoring externo)
+	handle /actuator/* {
+		reverse_proxy backend:8080
+	}
+
+	# OAuth2 con Google vive en el backend
+	handle /oauth2/* {
+		reverse_proxy backend:8080
+	}
+	handle /login/oauth2/* {
+		reverse_proxy backend:8080
+	}
+
+	# Todo lo demas: SPA servida por nginx
+	handle {
+		reverse_proxy frontend:80
+	}
+}

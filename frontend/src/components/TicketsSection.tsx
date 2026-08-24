@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TicketPriority, TicketStatus } from '../services/api';
-import { useChangeTicketStatus, useCreateTicket, useTickets } from '../hooks/useData';
+import {
+  useChangeTicketStatus,
+  useCreateTicket,
+  useTickets,
+  useUploadFile,
+} from '../hooks/useData';
 import { decodeJwt } from '../lib/jwt';
 import { apiDate } from '../lib/time';
 import TicketDetailPanel from './TicketDetailPanel';
@@ -29,6 +34,10 @@ export default function TicketsSection({ role, token, onOpenChat }: Props) {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newPriority, setNewPriority] = useState<TicketPriority>('MEDIUM');
+  // Archivos elegidos para adjuntar al crear el ticket (se suben tras crear)
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [attachFailed, setAttachFailed] = useState(false);
+  const newFilesRef = useRef<HTMLInputElement>(null);
 
   // Debounce del buscador: no pegamos al servidor por cada tecla
   useEffect(() => {
@@ -49,6 +58,7 @@ export default function TicketsSection({ role, token, onOpenChat }: Props) {
   });
   const createMutation = useCreateTicket();
   const statusMutation = useChangeTicketStatus();
+  const uploadFile = useUploadFile();
 
   const data = ticketsQuery.data;
   const tickets = data?.content ?? [];
@@ -62,15 +72,40 @@ export default function TicketsSection({ role, token, onOpenChat }: Props) {
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAttachFailed(false);
     try {
-      await createMutation.mutateAsync({ title: newTitle, description: newDesc, priority: newPriority });
+      const created = await createMutation.mutateAsync({
+        title: newTitle,
+        description: newDesc,
+        priority: newPriority,
+      });
+      // El ticket se creo: subimos los archivos elegidos (los fallos no borran el ticket)
+      for (const file of newFiles) {
+        try {
+          await uploadFile.mutateAsync({ ticketId: created.id, file });
+        } catch {
+          setAttachFailed(true);
+        }
+      }
       setNewTitle('');
       setNewDesc('');
       setNewPriority('MEDIUM');
+      setNewFiles([]);
       setPage(0);
     } catch {
       /* el error ya vive en la mutacion */
     }
+  };
+
+  const toggleNewFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (!picked.length) return;
+    // Evita duplicados por nombre+tamano
+    setNewFiles((prev) => [
+      ...prev,
+      ...picked.filter((f) => !prev.some((x) => x.name === f.name && x.size === f.size)),
+    ]);
   };
 
   const changeFilter = (apply: () => void) => {
@@ -113,14 +148,63 @@ export default function TicketsSection({ role, token, onOpenChat }: Props) {
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
+            <input
+              ref={newFilesRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={toggleNewFile}
+            />
+            <button
+              type="button"
+              onClick={() => newFilesRef.current?.click()}
+              title={t('tickets.attachFiles')}
+              className="cursor-pointer rounded-xl border border-slate-300 px-3 py-2 text-base text-slate-500 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40"
+            >
+              📎
+            </button>
+            {newFiles.length > 0 && (
+              <span className="text-xs font-medium text-brand-600 dark:text-brand-300">
+                {t('tickets.filesCount', { count: newFiles.length })}
+              </span>
+            )}
             <button
               type="submit"
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || uploadFile.isPending}
               className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
             >
-              {createMutation.isPending ? t('tickets.creating') : t('tickets.createBtn')}
+              {createMutation.isPending || uploadFile.isPending
+                ? t('tickets.creating')
+                : t('tickets.createBtn')}
             </button>
           </div>
+
+          {newFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {newFiles.map((f, i) => (
+                <span
+                  key={`${f.name}-${i}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+                >
+                  📄 {f.name}
+                  <button
+                    type="button"
+                    onClick={() => setNewFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className="cursor-pointer font-bold text-slate-400 transition-colors hover:text-red-500"
+                    title={t('common.remove')}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {attachFailed && (
+            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+              {t('tickets.attachFailed')}
+            </p>
+          )}
         </form>
 
         {error && (

@@ -24,6 +24,11 @@ public class Message {
     @JoinColumn(name = "sender_id", nullable = false)
     private User sender;
 
+    /** Adjunto opcional: archivo previamente subido a este mismo ticket. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "attachment_id")
+    private Attachment attachment;
+
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
@@ -48,6 +53,9 @@ public class Message {
 
     public User getSender() { return sender; }
     public void setSender(User sender) { this.sender = sender; }
+
+    public Attachment getAttachment() { return attachment; }
+    public void setAttachment(Attachment attachment) { this.attachment = attachment; }
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }

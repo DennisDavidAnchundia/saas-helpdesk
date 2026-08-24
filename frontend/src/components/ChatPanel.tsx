@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Client, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { getMessages, getPresence, type ChatMessage, type OnlineUser, type Ticket, type TicketStatus } from '../services/api';
-import { useChangeTicketStatus, useMarkTicketRead, useUnreadCounts } from '../hooks/useData';
+import { getMessages, getPresence, type ChatMessage, type OnlineUser, type SendChatPayload, type Ticket, type TicketStatus } from '../services/api';
+import { downloadAttachment, useChangeTicketStatus, useMarkTicketRead, useUnreadCounts, useUploadFile, type AttachmentInfo } from '../hooks/useData';
 import { decodeJwt } from '../lib/jwt';
+import { API_URL } from '../lib/config';
 import { apiDate } from '../lib/time';
 import { STATUS_STYLES, TRANSITIONS } from './ticketUi';
 
@@ -13,6 +14,13 @@ interface Props {
   tickets: Ticket[];
   /** Ticket a mostrar al llegar desde el boton "Abrir chat" del detalle */
   focusTicketId?: number | null;
+}
+
+/** Tamaño humanizado para chips de adjuntos. */
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} kB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
 export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
@@ -32,6 +40,11 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
   const [onlineIds, setOnlineIds] = useState<number[]>([]);
   const [onlineRoster, setOnlineRoster] = useState<OnlineUser[]>([]);
   const [error, setError] = useState('');
+
+  // Adjunto pendiente de enviar con el proximo mensaje (ya subido al ticket)
+  const [pendingFile, setPendingFile] = useState<AttachmentInfo | null>(null);
+  const upload = useUploadFile();
+  const chatFileRef = useRef<HTMLInputElement>(null);
 
   const statusMutation = useChangeTicketStatus();
   const markReadMutation = useMarkTicketRead();
@@ -76,6 +89,7 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
     if (!selectedId) return;
     setError('');
     setLoadingOlder(false);
+    setPendingFile(null);
     getMessages(token, selectedId)
       .then((pageData) => {
         setMessages(pageData.content);
@@ -122,7 +136,7 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
     if (!tenantId) return;
 
     const client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      webSocketFactory: () => new SockJS(`${API_URL}/ws`),
       connectHeaders: { Authorization: `Bearer ${token}` },
       reconnectDelay: 3000,
       onConnect: () => {
@@ -203,19 +217,43 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !selectedId) return;
+    try {
+      // Se sube YA al ticket; el mensaje solo referencia su id por WS
+      const att = await upload.mutateAsync({ ticketId: selectedId, file });
+      setPendingFile(att);
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al subir el archivo');
+    }
+  };
+
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     const content = input.trim();
-    if (!content || !selectedId) return;
+    if ((!content && !pendingFile) || !selectedId) return;
     if (!clientRef.current?.connected) {
       setError('Sin conexion con el servidor de chat');
       return;
     }
+    const payload: SendChatPayload = { content };
+    if (pendingFile) payload.attachmentId = pendingFile.id;
     clientRef.current.publish({
       destination: `/app/chat/${selectedId}`,
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(payload),
     });
     setInput('');
+    setPendingFile(null);
+  };
+
+  const handleDownloadAttachment = async (m: ChatMessage) => {
+    if (!m.attachment) return;
+    try {
+      await downloadAttachment(m.ticketId, m.attachment);
+    } catch { /* la descarga falla en silencio */ }
   };
 
   return (
@@ -353,7 +391,24 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
                         {m.senderName}
                       </p>
                     )}
-                    <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                    {m.content && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
+                    {m.attachment && (
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadAttachment(m)}
+                        title={t('tickets.download')}
+                        className={`mt-1 flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
+                          mine
+                            ? 'bg-white/15 hover:bg-white/30'
+                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20'
+                        }`}
+                      >
+                        <span aria-hidden>📎</span>
+                        <span className="max-w-36 truncate">{m.attachment.fileName}</span>
+                        <span className="opacity-70">{humanSize(m.attachment.sizeBytes)}</span>
+                        <span aria-hidden>⬇</span>
+                      </button>
+                    )}
                     <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-slate-400'}`}>
                       {apiDate(m.sentAt).toLocaleTimeString(i18n.language)}
                     </p>
@@ -367,18 +422,53 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
             <div ref={endRef} />
           </div>
 
+          {pendingFile && (
+            <div className="mb-2 flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50/70 px-3 py-1.5 text-xs dark:border-brand-500/30 dark:bg-brand-500/10">
+              <span aria-hidden>📄</span>
+              <span className="min-w-0 flex-1 truncate font-medium text-brand-700 dark:text-brand-200">
+                {pendingFile.fileName}
+              </span>
+              <span className="shrink-0 text-[10px] text-slate-400">
+                {humanSize(pendingFile.sizeBytes)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPendingFile(null)}
+                title={t('chat.removeAttachment')}
+                className="cursor-pointer font-bold text-slate-400 transition-colors hover:text-red-500"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleSend} className="mt-3 flex gap-2">
+            <input
+              ref={chatFileRef}
+              type="file"
+              className="hidden"
+              onChange={handleFilePicked}
+            />
+            <button
+              type="button"
+              onClick={() => chatFileRef.current?.click()}
+              disabled={!connected || upload.isPending || !selectedId}
+              title={t('chat.attach')}
+              className="cursor-pointer rounded-xl border border-slate-300 px-3 text-lg text-slate-500 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40"
+            >
+              {upload.isPending ? '…' : '📎'}
+            </button>
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={connected ? t('chat.placeholder') : t('chat.waitingConnection')}
+              placeholder={pendingFile ? t('chat.placeholderFile') : connected ? t('chat.placeholder') : t('chat.waitingConnection')}
               disabled={!connected}
               className="flex-1 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:disabled:bg-white/[0.02]"
             />
             <button
               type="submit"
-              disabled={!connected || !input.trim()}
+              disabled={!connected || (!input.trim() && !pendingFile)}
               className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {t('chat.send')}

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { API_URL } from '../lib/config';
 
 /**
  * Cliente HTTP central:
@@ -6,7 +7,7 @@ import axios from 'axios';
  * - Ante un 401 limpia la sesion y manda a /login
  */
 export const apiClient = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: `${API_URL}/api`,
   timeout: 15000,
 });
 

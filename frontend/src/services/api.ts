@@ -1,4 +1,6 @@
-const API = 'http://localhost:8080';
+import { API_URL } from '../lib/config';
+
+const API = API_URL;
 
 export interface LoginRequest {
   email: string;
@@ -253,6 +255,13 @@ export async function deleteArticle(token: string, id: number): Promise<void> {
 
 // ---------- Chat ----------
 
+export interface ChatAttachment {
+  id: number;
+  fileName: string;
+  contentType: string | null;
+  sizeBytes: number;
+}
+
 export interface ChatMessage {
   id: number;
   ticketId: number;
@@ -260,6 +269,12 @@ export interface ChatMessage {
   senderName: string | null;
   content: string;
   sentAt: string;
+  attachment?: ChatAttachment | null;
+}
+
+export interface SendChatPayload {
+  content: string;
+  attachmentId?: number;
 }
 
 export interface ChatMessagePage {

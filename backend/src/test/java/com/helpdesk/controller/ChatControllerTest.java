@@ -2,8 +2,11 @@ package com.helpdesk.controller;
 
 import com.helpdesk.config.JwtPrincipal;
 import com.helpdesk.config.JwtProvider;
+import com.helpdesk.dto.AttachmentResponse;
 import com.helpdesk.dto.ChatMessageResponse;
 import com.helpdesk.dto.SendChatMessageRequest;
+import com.helpdesk.model.Attachment;
+import com.helpdesk.model.Message;
 import com.helpdesk.model.Tenant;
 import com.helpdesk.model.Ticket;
 import com.helpdesk.model.User;
@@ -12,10 +15,12 @@ import com.helpdesk.repository.MessageRepository;
 import com.helpdesk.repository.TenantRepository;
 import com.helpdesk.repository.TicketRepository;
 import com.helpdesk.repository.UserRepository;
+import com.helpdesk.service.AttachmentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -224,6 +230,71 @@ class ChatControllerTest {
         assertEquals(1, messageRepository.count());
         assertEquals(request.getContent(),
                 messageRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).get(0).getContent());
+    }
+
+    @Test
+    void sendMessageWithAttachmentLinksTheFileToTheMessage() {
+        Tenant tenant = createTenant("Attach Chat Co");
+        User customer = createUser(tenant, "cust@acc.com", Role.CUSTOMER);
+        User agent = createUser(tenant, "agent@acc.com", Role.AGENT);
+        Ticket ticket = createTicket(tenant, customer, agent);
+
+        AttachmentService attachmentService = context.getBean(AttachmentService.class);
+        MockMultipartFile file =
+                new MockMultipartFile("file", "captura.png", "image/png", new byte[] {1, 2, 3});
+        AttachmentResponse uploaded = attachmentService.store(principal(customer), ticket.getId(), file);
+
+        // Mensaje SOLO con adjunto (sin texto) del propio uploader
+        SendChatMessageRequest request = new SendChatMessageRequest();
+        request.setAttachmentId(uploaded.getId());
+
+        ChatMessageResponse response = chatService.send(principal(customer), ticket.getId(), request);
+
+        assertEquals("", response.getContent());
+        assertNotNull(response.getAttachment());
+        assertEquals("captura.png", response.getAttachment().getFileName());
+
+        Message saved = messageRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).get(0);
+        assertNotNull(saved.getAttachment());
+        assertEquals(uploaded.getId(), saved.getAttachment().getId());
+    }
+
+    @Test
+    void cannotAttachForeignUploadOrFileFromAnotherTicket() {
+        Tenant tenant = createTenant("Foreign Attach Co");
+        User owner = createUser(tenant, "owner@fac.com", Role.CUSTOMER);
+        User agent = createUser(tenant, "agent@fac.com", Role.AGENT);
+        Ticket ticketA = createTicket(tenant, owner, agent);
+        Ticket ticketB = createTicket(tenant, owner, null);
+
+        AttachmentService attachmentService = context.getBean(AttachmentService.class);
+        MockMultipartFile file =
+                new MockMultipartFile("file", "reporte.pdf", "application/pdf", new byte[] {9});
+        AttachmentResponse mineOnB =
+                attachmentService.store(principal(owner), ticketB.getId(), file);
+
+        // 1. Adjunto de OTRO ticket (aunque el dueno participe en ambos)
+        SendChatMessageRequest foreignTicket = new SendChatMessageRequest();
+        foreignTicket.setContent("mira");
+        foreignTicket.setAttachmentId(mineOnB.getId());
+        assertThrows(IllegalArgumentException.class,
+                () -> chatService.send(principal(owner), ticketA.getId(), foreignTicket));
+
+        // 2. Adjunto valido pero subido por OTRA persona (el agente del ticket)
+        AttachmentResponse theirsOnA =
+                attachmentService.store(principal(agent), ticketA.getId(), file);
+        SendChatMessageRequest foreignUploader = new SendChatMessageRequest();
+        foreignUploader.setContent("mira");
+        foreignUploader.setAttachmentId(theirsOnA.getId());
+        assertThrows(IllegalArgumentException.class,
+                () -> chatService.send(principal(owner), ticketA.getId(), foreignUploader));
+
+        // 3. Ni texto ni adjunto -> rechazado
+        SendChatMessageRequest empty = new SendChatMessageRequest();
+        assertThrows(IllegalArgumentException.class,
+                () -> chatService.send(principal(owner), ticketA.getId(), empty));
+
+        assertEquals(0, messageRepository.count());
     }
 
     // ---------- helpers ----------

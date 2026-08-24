@@ -191,6 +191,21 @@ export function useUploadAttachment(ticketId: number) {
   });
 }
 
+/** Variante flexible para el chat y la creacion de tickets: el ticket va en el payload. */
+export function useUploadFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ticketId, file }: { ticketId: number; file: File }) => {
+      const form = new FormData();
+      form.append('file', file);
+      const { data } = await apiClient.post<AttachmentInfo>(`/tickets/${ticketId}/attachments`, form);
+      return data;
+    },
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: ['attachments', variables.ticketId] }),
+  });
+}
+
 export function useDeleteAttachment(ticketId: number) {
   const qc = useQueryClient();
   return useMutation({
@@ -203,7 +218,10 @@ export function useDeleteAttachment(ticketId: number) {
 }
 
 /** Descarga con el token del interceptor y guarda via <a download>. */
-export async function downloadAttachment(ticketId: number, att: AttachmentInfo): Promise<void> {
+export async function downloadAttachment(
+  ticketId: number,
+  att: Pick<AttachmentInfo, 'id' | 'fileName'>,
+): Promise<void> {
   const res = await apiClient.get<Blob>(`/tickets/${ticketId}/attachments/${att.id}/download`, {
     responseType: 'blob',
   });

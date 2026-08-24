@@ -12,6 +12,7 @@ public class ChatMessageResponse {
     private String senderName;
     private String content;
     private LocalDateTime sentAt;
+    private AttachmentResponse attachment;
 
     public ChatMessageResponse() {}
 
@@ -23,6 +24,8 @@ public class ChatMessageResponse {
         r.senderName = m.getSender() != null ? m.getSender().getFullName() : null;
         r.content = m.getContent();
         r.sentAt = m.getCreatedAt();
+        // Se accede DENTRO de la transaccion (attachment es LAZY)
+        r.attachment = m.getAttachment() != null ? AttachmentResponse.from(m.getAttachment()) : null;
         return r;
     }
 
@@ -43,4 +46,7 @@ public class ChatMessageResponse {
 
     public LocalDateTime getSentAt() { return sentAt; }
     public void setSentAt(LocalDateTime sentAt) { this.sentAt = sentAt; }
+
+    public AttachmentResponse getAttachment() { return attachment; }
+    public void setAttachment(AttachmentResponse attachment) { this.attachment = attachment; }
 }

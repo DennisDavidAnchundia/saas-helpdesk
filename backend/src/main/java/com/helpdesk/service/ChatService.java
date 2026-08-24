@@ -5,10 +5,12 @@ import com.helpdesk.dto.ChatMessageResponse;
 import com.helpdesk.dto.ChatPageResponse;
 import com.helpdesk.dto.OnlineUserResponse;
 import com.helpdesk.dto.SendChatMessageRequest;
+import com.helpdesk.model.Attachment;
 import com.helpdesk.model.Message;
 import com.helpdesk.model.MessageRead;
 import com.helpdesk.model.Ticket;
 import com.helpdesk.model.User;
+import com.helpdesk.repository.AttachmentRepository;
 import com.helpdesk.repository.MessageReadRepository;
 import com.helpdesk.repository.MessageRepository;
 import com.helpdesk.repository.TicketRepository;
@@ -30,6 +32,7 @@ public class ChatService {
 
     private final MessageRepository messageRepository;
     private final MessageReadRepository messageReadRepository;
+    private final AttachmentRepository attachmentRepository;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final PresenceService presenceService;
@@ -37,12 +40,14 @@ public class ChatService {
 
     public ChatService(MessageRepository messageRepository,
                        MessageReadRepository messageReadRepository,
+                       AttachmentRepository attachmentRepository,
                        TicketRepository ticketRepository,
                        UserRepository userRepository,
                        PresenceService presenceService,
                        ApplicationEventPublisher events) {
         this.messageRepository = messageRepository;
         this.messageReadRepository = messageReadRepository;
+        this.attachmentRepository = attachmentRepository;
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
         this.presenceService = presenceService;
@@ -56,11 +61,31 @@ public class ChatService {
         User sender = userRepository.findById(principal.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
+        // Regla: texto o adjunto, al menos uno
+        String content = request.getContent() == null ? "" : request.getContent().trim();
+        if (content.isEmpty() && request.getAttachmentId() == null) {
+            throw new IllegalArgumentException("El mensaje no puede estar vacio");
+        }
+
+        // Adjunto opcional: debe existir, ser de ESTE ticket y haberlo subido el remitente
+        Attachment attachment = null;
+        if (request.getAttachmentId() != null) {
+            attachment = attachmentRepository.findById(request.getAttachmentId())
+                    .filter(a -> a.getTicket().getId().equals(ticket.getId()))
+                    .orElseThrow(() -> new IllegalArgumentException("Adjunto no encontrado para este ticket"));
+            boolean isUploader = attachment.getUploader() != null
+                    && attachment.getUploader().getId().equals(sender.getId());
+            if (!isUploader) {
+                throw new IllegalArgumentException("Solo quien subio el archivo puede enviarlo por chat");
+            }
+        }
+
         Message message = new Message();
         message.setTenant(ticket.getTenant());
         message.setTicket(ticket);
         message.setSender(sender);
-        message.setContent(request.getContent().trim());
+        message.setAttachment(attachment);
+        message.setContent(content);
 
         ChatMessageResponse response = ChatMessageResponse.from(messageRepository.save(message));
 
@@ -68,7 +93,10 @@ public class ChatService {
         if ("CUSTOMER".equals(principal.getRole())
                 && ticket.getAgent() != null
                 && !ticket.getAgent().getId().equals(sender.getId())) {
-            String preview = response.getContent();
+            String preview = content;
+            if (preview.isEmpty() && response.getAttachment() != null) {
+                preview = "[Adjunto] " + response.getAttachment().getFileName();
+            }
             if (preview.length() > 80) {
                 preview = preview.substring(0, 80) + "…";
             }

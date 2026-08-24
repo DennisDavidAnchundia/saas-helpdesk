@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TicketPriority } from '../services/api';
-import { useCreateTicket, useTickets } from '../hooks/useData';
+import { useCreateTicket, useTickets, useUploadFile } from '../hooks/useData';
 import { apiDate } from '../lib/time';
 import TicketDetailPanel from './TicketDetailPanel';
 import { PRIORITY_STYLES, STATUS_STYLES } from './ticketUi';
@@ -15,10 +15,15 @@ export default function CustomerPortal({ onOpenChat }: { onOpenChat?: (ticketId:
   const [newDesc, setNewDesc] = useState('');
   const [newPriority, setNewPriority] = useState<TicketPriority>('MEDIUM');
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Archivos elegidos para adjuntar al crear el ticket (se suben tras crear)
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [attachFailed, setAttachFailed] = useState(false);
+  const newFilesRef = useRef<HTMLInputElement>(null);
 
   // El backend ya filtra por cliente cuando el rol es CUSTOMER
   const ticketsQuery = useTickets({ size: 20 });
   const createMutation = useCreateTicket();
+  const uploadFile = useUploadFile();
 
   const tickets = ticketsQuery.data?.content ?? [];
   const totalElements = ticketsQuery.data?.totalElements ?? 0;
@@ -27,14 +32,37 @@ export default function CustomerPortal({ onOpenChat }: { onOpenChat?: (ticketId:
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAttachFailed(false);
     try {
-      await createMutation.mutateAsync({ title: newTitle, description: newDesc, priority: newPriority });
+      const created = await createMutation.mutateAsync({
+        title: newTitle,
+        description: newDesc,
+        priority: newPriority,
+      });
+      for (const file of newFiles) {
+        try {
+          await uploadFile.mutateAsync({ ticketId: created.id, file });
+        } catch {
+          setAttachFailed(true);
+        }
+      }
       setNewTitle('');
       setNewDesc('');
       setNewPriority('MEDIUM');
+      setNewFiles([]);
     } catch {
       /* el error ya vive en la mutacion */
     }
+  };
+
+  const toggleNewFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (!picked.length) return;
+    setNewFiles((prev) => [
+      ...prev,
+      ...picked.filter((f) => !prev.some((x) => x.name === f.name && x.size === f.size)),
+    ]);
   };
 
   return (
@@ -76,14 +104,63 @@ export default function CustomerPortal({ onOpenChat }: { onOpenChat?: (ticketId:
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
+            <input
+              ref={newFilesRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={toggleNewFile}
+            />
+            <button
+              type="button"
+              onClick={() => newFilesRef.current?.click()}
+              title={t('tickets.attachFiles')}
+              className="cursor-pointer rounded-xl border border-slate-300 px-3 py-2 text-base text-slate-500 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40"
+            >
+              📎
+            </button>
+            {newFiles.length > 0 && (
+              <span className="text-xs font-medium text-brand-600 dark:text-brand-300">
+                {t('tickets.filesCount', { count: newFiles.length })}
+              </span>
+            )}
             <button
               type="submit"
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || uploadFile.isPending}
               className="ml-auto cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
             >
-              {createMutation.isPending ? t('portal.creating') : t('portal.createBtn')}
+              {createMutation.isPending || uploadFile.isPending
+                ? t('portal.creating')
+                : t('portal.createBtn')}
             </button>
           </div>
+
+          {newFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {newFiles.map((f, i) => (
+                <span
+                  key={`${f.name}-${i}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+                >
+                  📄 {f.name}
+                  <button
+                    type="button"
+                    onClick={() => setNewFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className="cursor-pointer font-bold text-slate-400 transition-colors hover:text-red-500"
+                    title={t('common.remove')}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {attachFailed && (
+            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+              {t('tickets.attachFailed')}
+            </p>
+          )}
         </form>
 
         {error && (
