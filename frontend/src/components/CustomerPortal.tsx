@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TicketPriority } from '../services/api';
 import { useCreateTicket, useTickets } from '../hooks/useData';
+import { apiDate } from '../lib/time';
 import TicketDetailPanel from './TicketDetailPanel';
 import { PRIORITY_STYLES, STATUS_STYLES } from './ticketUi';
 
@@ -149,7 +150,7 @@ export default function CustomerPortal({ onOpenChat }: { onOpenChat?: (ticketId:
               {tk.agentName
                 ? `${t('tickets.agent')}: ${tk.agentName}`
                 : `${t('tickets.agent')}: ${t('tickets.unassigned')}`}
-              {tk.slaDueAt && ` · ${t('tickets.slaDue')}: ${new Date(tk.slaDueAt).toLocaleString('es')}`}
+              {tk.slaDueAt && ` · ${t('tickets.slaDue')}: ${apiDate(tk.slaDueAt).toLocaleString('es')}`}
             </p>
           </article>
         ))}

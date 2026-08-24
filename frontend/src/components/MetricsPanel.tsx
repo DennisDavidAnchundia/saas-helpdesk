@@ -65,7 +65,7 @@ export default function MetricsPanel() {
 
   const trendData = (trendQuery.data ?? []).map((p) => ({
     ...p,
-    label: new Date(`${p.date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
+    label: new Date(`${p.date}T12:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
   }));
 
   const tooltipStyle = {

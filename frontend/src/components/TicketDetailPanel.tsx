@@ -12,6 +12,7 @@ import {
   useUploadAttachment,
   type AttachmentInfo,
 } from '../hooks/useData';
+import { apiDate } from '../lib/time';
 import { ChatIcon } from './icons';
 import { PRIORITY_STYLES, STATUS_STYLES, TRANSITIONS } from './ticketUi';
 
@@ -120,7 +121,7 @@ function AttachmentsCard({ ticketId, role }: { ticketId: number; role: string })
               </span>
               <span className="text-[11px] text-slate-400">{formatSize(att.sizeBytes)}</span>
               <span className="hidden text-[11px] text-slate-400 sm:inline">
-                {att.uploaderName} · {new Date(att.createdAt).toLocaleDateString(i18n.language)}
+                {att.uploaderName} · {apiDate(att.createdAt).toLocaleDateString(i18n.language)}
               </span>
               <button
                 onClick={() => handleDownload(att)}
@@ -191,7 +192,7 @@ export default function TicketDetailPanel({ ticketId, role, onClose, onOpenChat 
       : TRANSITIONS[tk.status] ?? [];
 
   const fmtDate = (value: string | null) =>
-    value ? new Date(value).toLocaleString(i18n.language) : '—';
+    value ? apiDate(value).toLocaleString(i18n.language) : '—';
 
   const metaRow = (label: string, value: string) => (
     <div className="rounded-xl bg-slate-50 px-3.5 py-2.5 dark:bg-white/[0.04]">
@@ -231,12 +232,12 @@ export default function TicketDetailPanel({ ticketId, role, onClose, onOpenChat 
             // Chip de SLA con cuenta regresiva solo mientras el ticket sigue abierto
             const open = tk.status === 'OPEN' || tk.status === 'IN_PROGRESS' || tk.status === 'REOPENED';
             if (!open || !tk.slaDueAt) return null;
-            const diffMs = new Date(tk.slaDueAt).getTime() - now;
+            const diffMs = apiDate(tk.slaDueAt).getTime() - now;
             const overdue = !!tk.slaBreached || diffMs < 0;
             const soon = !overdue && diffMs < 2 * 60 * 60 * 1000;
             return (
               <span
-                title={new Date(tk.slaDueAt).toLocaleString('es')}
+                title={apiDate(tk.slaDueAt).toLocaleString('es')}
                 className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                   overdue
                     ? 'animate-pulse-dot bg-red-600 text-white'

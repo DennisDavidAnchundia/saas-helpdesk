@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { TicketPriority, TicketStatus } from '../services/api';
 import { useChangeTicketStatus, useCreateTicket, useTickets } from '../hooks/useData';
 import { decodeJwt } from '../lib/jwt';
+import { apiDate } from '../lib/time';
 import TicketDetailPanel from './TicketDetailPanel';
 import { ALL_PRIORITIES, ALL_STATUSES, PRIORITY_STYLES, STATUS_STYLES, TRANSITIONS } from './ticketUi';
 
@@ -248,8 +249,8 @@ export default function TicketsSection({ role, token, onOpenChat }: Props) {
             <p className="mt-1.5 text-xs text-slate-400">
               {t('tickets.customer')}: {tk.customerName}
               {' · '}{t('tickets.agent')}: {tk.agentName || t('tickets.unassigned')}
-              {tk.slaDueAt && ` · ${t('tickets.slaDue')}: ${new Date(tk.slaDueAt).toLocaleString('es')}`}
-              {tk.firstResponseAt && ` · ${t('tickets.firstResponse')}: ${new Date(tk.firstResponseAt).toLocaleTimeString('es')}`}
+              {tk.slaDueAt && ` · ${t('tickets.slaDue')}: ${apiDate(tk.slaDueAt).toLocaleString('es')}`}
+              {tk.firstResponseAt && ` · ${t('tickets.firstResponse')}: ${apiDate(tk.firstResponseAt).toLocaleTimeString('es')}`}
             </p>
           </article>
         ))}

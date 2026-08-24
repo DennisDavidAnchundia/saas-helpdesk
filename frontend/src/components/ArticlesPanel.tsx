@@ -7,6 +7,7 @@ import {
   useUpdateArticle,
 } from '../hooks/useData';
 import type { Article } from '../services/api';
+import { apiDate } from '../lib/time';
 
 interface Props {
   role: string;
@@ -248,7 +249,7 @@ export default function ArticlesPanel({ role }: Props) {
               )}
               <p className="mt-1.5 text-xs text-slate-400">
                 {t('articles.author')}: {reading.authorName || '-'} · {t('articles.updated')}:{' '}
-                {new Date(reading.updatedAt).toLocaleString(i18n.language)}
+                {apiDate(reading.updatedAt).toLocaleString(i18n.language)}
               </p>
             </div>
 
@@ -377,7 +378,7 @@ function ArticleCard({
       <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-xs text-slate-500 dark:text-slate-400">{article.content}</p>
       <p className="mt-1.5 text-xs text-slate-400">
         {t('articles.author')}: {article.authorName || '-'} · {t('articles.updated')}:{' '}
-        {new Date(article.updatedAt).toLocaleString(i18n.language)} ·{' '}
+        {apiDate(article.updatedAt).toLocaleString(i18n.language)} ·{' '}
         <span className="font-medium text-brand-500 dark:text-brand-400">{t('articles.readMore')}</span>
       </p>
     </article>
