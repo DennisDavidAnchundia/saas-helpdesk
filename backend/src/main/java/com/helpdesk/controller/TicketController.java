@@ -1,7 +1,7 @@
 package com.helpdesk.controller;
 
 import com.helpdesk.config.JwtPrincipal;
-import com.helpdesk.dto.ChatMessageResponse;
+import com.helpdesk.dto.ChatPageResponse;
 import com.helpdesk.dto.CreateTicketRequest;
 import com.helpdesk.dto.OnlineUserResponse;
 import com.helpdesk.dto.TicketPageResponse;
@@ -97,10 +97,13 @@ public class TicketController {
         return ticketService.autoAssign(principal.getTenantId(), id, principal.getRole(), principal.getUserId());
     }
 
+    /** Historial paginado: page 0 = mensajes mas recientes, size limitado 1-100 (default 50). */
     @GetMapping("/{id}/messages")
-    public List<ChatMessageResponse> messages(@PathVariable Long id,
-                                              @AuthenticationPrincipal JwtPrincipal principal) {
-        return chatService.historyForUser(principal, id);
+    public ChatPageResponse messages(@PathVariable Long id,
+                                     @RequestParam(defaultValue = "0") int page,
+                                     @RequestParam(defaultValue = "50") int size,
+                                     @AuthenticationPrincipal JwtPrincipal principal) {
+        return chatService.historyPageForUser(principal, id, page, size);
     }
 
     @GetMapping("/{id}/presence")

@@ -262,8 +262,22 @@ export interface ChatMessage {
   sentAt: string;
 }
 
-export async function getMessages(token: string, ticketId: number): Promise<ChatMessage[]> {
-  const res = await fetch(`${API}/api/tickets/${ticketId}/messages`, {
+export interface ChatMessagePage {
+  content: ChatMessage[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+/** Historial paginado: la pagina 0 trae los mensajes mas recientes. */
+export async function getMessages(
+  token: string,
+  ticketId: number,
+  page = 0,
+  size = 50,
+): Promise<ChatMessagePage> {
+  const res = await fetch(`${API}/api/tickets/${ticketId}/messages?page=${page}&size=${size}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {

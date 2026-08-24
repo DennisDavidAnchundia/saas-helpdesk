@@ -2,6 +2,7 @@ package com.helpdesk.service;
 
 import com.helpdesk.config.JwtPrincipal;
 import com.helpdesk.dto.ChatMessageResponse;
+import com.helpdesk.dto.ChatPageResponse;
 import com.helpdesk.dto.OnlineUserResponse;
 import com.helpdesk.dto.SendChatMessageRequest;
 import com.helpdesk.model.Message;
@@ -14,6 +15,8 @@ import com.helpdesk.repository.TicketRepository;
 import com.helpdesk.repository.UserRepository;
 import com.helpdesk.service.event.Notifications;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -81,12 +84,19 @@ public class ChatService {
         return response;
     }
 
+    /**
+     * Historial paginado: la pagina 0 trae los mensajes mas recientes y el
+     * contenido de cada pagina viene en orden cronologico. El frontend pide
+     * paginas crecientes para anteponer mensajes viejos ("cargar anteriores").
+     */
     @Transactional(readOnly = true)
-    public List<ChatMessageResponse> historyForUser(JwtPrincipal principal, Long ticketId) {
+    public ChatPageResponse historyPageForUser(JwtPrincipal principal, Long ticketId, int page, int size) {
         Ticket ticket = accessibleTicket(principal, ticketId);
-        return messageRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).stream()
-                .map(ChatMessageResponse::from)
-                .toList();
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int safePage = Math.max(page, 0);
+        Page<Message> result = messageRepository.findByTicketIdOrderByCreatedAtDescIdDesc(
+                ticket.getId(), PageRequest.of(safePage, safeSize));
+        return ChatPageResponse.of(result);
     }
 
     @Transactional(readOnly = true)

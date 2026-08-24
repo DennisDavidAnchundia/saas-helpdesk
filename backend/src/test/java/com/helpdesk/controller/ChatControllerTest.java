@@ -82,11 +82,44 @@ class ChatControllerTest {
         mockMvc.perform(get("/api/tickets/" + ticket.getId() + "/messages")
                         .header("Authorization", "Bearer " + token(customer)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].content").value("Hola, mi impresora no anda"))
-                .andExpect(jsonPath("$[0].senderName").value("cust"))
-                .andExpect(jsonPath("$[1].content").value("Ya la reviso"));
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].content").value("Hola, mi impresora no anda"))
+                .andExpect(jsonPath("$.content[0].senderName").value("cust"))
+                .andExpect(jsonPath("$.content[1].content").value("Ya la reviso"));
+    }
+
+    @Test
+    void historyIsPagedStartingFromNewestMessages() throws Exception {
+        Tenant tenant = createTenant("Pager Chat Co");
+        User customer = createUser(tenant, "cust@pgc.com", Role.CUSTOMER);
+        Ticket ticket = createTicket(tenant, customer, null);
+
+        for (int i = 1; i <= 5; i++) {
+            send(customer, ticket.getId(), "Mensaje " + i);
+        }
+
+        // Pagina 0 con size 2: los dos mas recientes (4 y 5), en orden cronologico
+        mockMvc.perform(get("/api/tickets/" + ticket.getId() + "/messages")
+                        .param("page", "0")
+                        .param("size", "2")
+                        .header("Authorization", "Bearer " + token(customer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(5))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].content").value("Mensaje 4"))
+                .andExpect(jsonPath("$.content[1].content").value("Mensaje 5"));
+
+        // La ultima pagina trae solo el mensaje mas viejo
+        mockMvc.perform(get("/api/tickets/" + ticket.getId() + "/messages")
+                        .param("page", "2")
+                        .param("size", "2")
+                        .header("Authorization", "Bearer " + token(customer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].content").value("Mensaje 1"));
     }
 
     @Test

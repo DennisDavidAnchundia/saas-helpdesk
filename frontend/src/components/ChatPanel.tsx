@@ -5,6 +5,7 @@ import SockJS from 'sockjs-client';
 import { getMessages, getPresence, type ChatMessage, type OnlineUser, type Ticket, type TicketStatus } from '../services/api';
 import { useChangeTicketStatus, useMarkTicketRead, useUnreadCounts } from '../hooks/useData';
 import { decodeJwt } from '../lib/jwt';
+import { apiDate } from '../lib/time';
 import { STATUS_STYLES, TRANSITIONS } from './ticketUi';
 
 interface Props {
@@ -23,6 +24,9 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
 
   const [selectedId, setSelectedId] = useState<number | null>(tickets[0]?.id ?? null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Paginacion: proxima pagina a pedir y total; null = no hay historial viejo
+  const [older, setOlder] = useState<{ next: number; total: number } | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [input, setInput] = useState('');
   const [connected, setConnected] = useState(false);
   const [onlineIds, setOnlineIds] = useState<number[]>([]);
@@ -49,6 +53,9 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
   const subRef = useRef<{ unsubscribe: () => void } | null>(null);
   const selectedRef = useRef<number | null>(selectedId);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const scrollBoxRef = useRef<HTMLDivElement | null>(null);
+  const lastMsgIdRef = useRef<number | null>(null);
+  const prevHeightRef = useRef(0);
 
   useEffect(() => {
     selectedRef.current = selectedId;
@@ -68,8 +75,16 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
   useEffect(() => {
     if (!selectedId) return;
     setError('');
+    setLoadingOlder(false);
     getMessages(token, selectedId)
-      .then(setMessages)
+      .then((pageData) => {
+        setMessages(pageData.content);
+        setOlder(
+          pageData.totalPages > 1
+            ? { next: pageData.page + 1, total: pageData.totalPages }
+            : null,
+        );
+      })
       .catch((err) => setError(err.message));
     getPresence(token, selectedId)
       .then((users) => {
@@ -78,6 +93,30 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
       })
       .catch(() => {});
   }, [selectedId, token]);
+
+  /** Pide la pagina anterior y antepone los mensajes sin que salte la vista. */
+  const loadOlder = async () => {
+    if (!selectedId || !older || loadingOlder) return;
+    prevHeightRef.current = scrollBoxRef.current?.scrollHeight ?? 0;
+    setLoadingOlder(true);
+    try {
+      const pageData = await getMessages(token, selectedId, older.next);
+      setMessages((prev) => [...pageData.content, ...prev]);
+      setOlder(
+        pageData.page + 1 < pageData.totalPages
+          ? { next: pageData.page + 1, total: pageData.totalPages }
+          : null,
+      );
+      requestAnimationFrame(() => {
+        const box = scrollBoxRef.current;
+        if (box) box.scrollTop = box.scrollHeight - prevHeightRef.current;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar mensajes');
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   useEffect(() => {
     if (!tenantId) return;
@@ -155,9 +194,14 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, selectedId]);
 
+  // Baja al final solo cuando cambia el ULTIMO mensaje (llego uno nuevo o se
+  // cambio de conversacion); antecponer historial viejo no debe mover la vista.
   useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last || last.id === lastMsgIdRef.current) return;
+    lastMsgIdRef.current = last.id;
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  }, [messages]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -277,7 +321,22 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
             </p>
           )}
 
-          <div className="h-[50dvh] max-h-96 min-h-64 space-y-2 overflow-y-auto rounded-xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-black/20">
+          <div
+            ref={scrollBoxRef}
+            className="h-[50dvh] max-h-96 min-h-64 space-y-2 overflow-y-auto rounded-xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-black/20"
+          >
+            {older && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={loadOlder}
+                  disabled={loadingOlder}
+                  className="cursor-pointer rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-brand-500/40"
+                >
+                  {loadingOlder ? t('chat.loadingOlder') : t('chat.loadOlder')}
+                </button>
+              </div>
+            )}
             {messages.map((m) => {
               const mine = m.senderId === userId;
               return (
@@ -296,7 +355,7 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
                     )}
                     <p className="whitespace-pre-wrap break-words">{m.content}</p>
                     <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-slate-400'}`}>
-                      {new Date(m.sentAt).toLocaleTimeString(i18n.language)}
+                      {apiDate(m.sentAt).toLocaleTimeString(i18n.language)}
                     </p>
                   </div>
                 </div>
