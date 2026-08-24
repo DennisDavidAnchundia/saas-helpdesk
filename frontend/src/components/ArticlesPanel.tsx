@@ -19,12 +19,16 @@ const errorBox =
   'mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300';
 
 export default function ArticlesPanel({ role }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const [search, setSearch] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('');
+  // Lectora: articulo abierto en modal + modo edicion para staff
+  const [reading, setReading] = useState<Article | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState({ title: '', content: '', category: '' });
   const isStaff = role === 'ADMIN' || role === 'AGENT';
 
   const articlesQuery = useArticles(search || undefined);
@@ -39,6 +43,38 @@ export default function ArticlesPanel({ role }: Props) {
     updateMutation.error?.message ||
     deleteMutation.error?.message ||
     '';
+
+  const openReader = (article: Article) => {
+    setReading(article);
+    setEditing(false);
+  };
+
+  const startEditing = () => {
+    if (!reading) return;
+    setEditDraft({ title: reading.title, content: reading.content, category: reading.category ?? '' });
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!reading) return;
+    try {
+      await updateMutation.mutateAsync({
+        id: reading.id,
+        title: editDraft.title,
+        content: editDraft.content,
+        category: editDraft.category || undefined,
+      });
+      setReading({ ...reading, ...editDraft, category: editDraft.category || null });
+      setEditing(false);
+    } catch {
+      /* el error ya vive en la mutacion */
+    }
+  };
+
+  const closeReader = () => {
+    setReading(null);
+    setEditing(false);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +186,7 @@ export default function ArticlesPanel({ role }: Props) {
               article={a}
               isStaff={isStaff}
               isAdmin={role === 'ADMIN'}
+              onSelect={() => openReader(a)}
               onToggle={() => updateMutation.mutate({ id: a.id, isPublished: !a.isPublished })}
               onDelete={() => deleteMutation.mutate(a.id)}
             />
@@ -161,6 +198,120 @@ export default function ArticlesPanel({ role }: Props) {
           )}
         </div>
       )}
+
+      {/* ===== Lectora de articulo (modal centrado) ===== */}
+      {reading && (
+        <div className="fixed inset-0 z-50 grid place-items-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+            onClick={closeReader}
+          />
+          <div className="animate-fade-up relative flex max-h-[85dvh] w-full max-w-2xl flex-col rounded-3xl border border-slate-200/80 bg-white shadow-2xl dark:border-white/10 dark:bg-[#12121e]">
+            <button
+              type="button"
+              onClick={closeReader}
+              aria-label={t('common.close')}
+              className="absolute right-4 top-4 cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-slate-200"
+            >
+              ✕
+            </button>
+
+            <div className="border-b border-slate-100 p-6 pb-4 dark:border-white/5">
+              <div className="mb-2 flex flex-wrap items-center gap-2 pr-8">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    reading.isPublished
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                      : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300'
+                  }`}
+                >
+                  {reading.isPublished ? t('articles.published') : t('articles.draft')}
+                </span>
+                {reading.category && (
+                  <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[11px] font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+                    {reading.category}
+                  </span>
+                )}
+              </div>
+              {editing ? (
+                <input
+                  type="text"
+                  value={editDraft.title}
+                  onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
+                  maxLength={255}
+                  className={`${inputCls} w-full font-display text-lg font-bold`}
+                />
+              ) : (
+                <h2 className="font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  {reading.title}
+                </h2>
+              )}
+              <p className="mt-1.5 text-xs text-slate-400">
+                {t('articles.author')}: {reading.authorName || '-'} · {t('articles.updated')}:{' '}
+                {new Date(reading.updatedAt).toLocaleString(i18n.language)}
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {editing ? (
+                <div className="space-y-3">
+                  <textarea
+                    value={editDraft.content}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, content: e.target.value }))}
+                    rows={10}
+                    className={`${inputCls} w-full resize-none`}
+                  />
+                  <input
+                    type="text"
+                    value={editDraft.category}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, category: e.target.value }))}
+                    placeholder={t('articles.categoryOptional')}
+                    className={`${inputCls} w-full`}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  {reading.content.split(/\n{2,}/).map((para, i) => (
+                    <p key={i} className="whitespace-pre-line">{para}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {isStaff && (
+              <div className="flex justify-end gap-2 border-t border-slate-100 p-4 dark:border-white/5">
+                {editing ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setEditing(false)}
+                      className="cursor-pointer rounded-xl border border-slate-200/70 px-4 py-2 text-xs font-semibold text-slate-500 transition-colors hover:border-slate-300 dark:border-white/10 dark:text-slate-400"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveEdit}
+                      disabled={updateMutation.isPending || !editDraft.title.trim() || !editDraft.content.trim()}
+                      className="cursor-pointer rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-brand-500/25 transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {updateMutation.isPending ? t('admin.saving') : t('articles.save')}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startEditing}
+                    className="cursor-pointer rounded-xl border border-brand-200 bg-brand-50 px-4 py-2 text-xs font-semibold text-brand-600 transition-all hover:-translate-y-0.5 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300"
+                  >
+                    ✎ {t('articles.edit')}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -169,18 +320,23 @@ function ArticleCard({
   article,
   isStaff,
   isAdmin,
+  onSelect,
   onToggle,
   onDelete,
 }: {
   article: Article;
   isStaff: boolean;
   isAdmin: boolean;
+  onSelect: () => void;
   onToggle: () => void;
   onDelete: () => void;
 }) {
   const { t, i18n } = useTranslation();
   return (
-    <article className="rounded-2xl border border-slate-200/70 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-500/5 dark:border-white/10 dark:hover:border-brand-500/40">
+    <article
+      onClick={onSelect}
+      className="cursor-pointer rounded-2xl border border-slate-200/70 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-500/5 dark:border-white/10 dark:hover:border-brand-500/40"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{article.title}</span>
@@ -202,14 +358,14 @@ function ArticleCard({
         {isStaff && (
           <div className="flex gap-1.5">
             <button
-              onClick={onToggle}
+              onClick={(e) => { e.stopPropagation(); onToggle(); }}
               className="cursor-pointer rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
             >
               {article.isPublished ? t('articles.unpublish') : t('articles.publish')}
             </button>
             {isAdmin && (
               <button
-                onClick={onDelete}
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
                 className="cursor-pointer rounded-lg border border-red-200 px-2.5 py-1 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
               >
                 {t('articles.delete')}
@@ -218,10 +374,11 @@ function ArticleCard({
           </div>
         )}
       </div>
-      <p className="mt-2 whitespace-pre-wrap text-xs text-slate-500 dark:text-slate-400">{article.content}</p>
+      <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-xs text-slate-500 dark:text-slate-400">{article.content}</p>
       <p className="mt-1.5 text-xs text-slate-400">
         {t('articles.author')}: {article.authorName || '-'} · {t('articles.updated')}:{' '}
-        {new Date(article.updatedAt).toLocaleString(i18n.language)}
+        {new Date(article.updatedAt).toLocaleString(i18n.language)} ·{' '}
+        <span className="font-medium text-brand-500 dark:text-brand-400">{t('articles.readMore')}</span>
       </p>
     </article>
   );
