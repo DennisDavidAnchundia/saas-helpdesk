@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { testEndpoint } from '../services/api';
 import { useTickets, useUnreadCounts } from '../hooks/useData';
@@ -16,10 +16,12 @@ import {
 import AdminPanel from '../components/AdminPanel';
 import ArticlesPanel from '../components/ArticlesPanel';
 import BillingPanel from '../components/BillingPanel';
-import ChatPanel from '../components/ChatPanel';
 import CustomerPortal from '../components/CustomerPortal';
-import MetricsPanel from '../components/MetricsPanel';
 import TicketsSection from '../components/TicketsSection';
+
+// Chunks pesados bajo demanda: recharts (Metricas) y STOMP/SockJS (Chat)
+const MetricsPanel = lazy(() => import('../components/MetricsPanel'));
+const ChatPanel = lazy(() => import('../components/ChatPanel'));
 
 interface Props {
   email: string;
@@ -128,14 +130,22 @@ export default function DashboardPage({ email, role, tenantName, token, onLogout
       onLogout={onLogout}
     >
       <div className="animate-fade-up space-y-6">
-        {/* ===================== TICKETS ===================== */}
-        {tab === 'tickets' && (role === 'CUSTOMER' ? <CustomerPortal onOpenChat={handleOpenChat} /> : <TicketsSection role={role} token={token} onOpenChat={handleOpenChat} />)}
+        <Suspense
+          fallback={
+            <div className="grid place-items-center rounded-2xl border border-slate-200/70 bg-white py-16 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="size-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-500" />
+            </div>
+          }
+        >
+          {/* ===================== TICKETS ===================== */}
+          {tab === 'tickets' && (role === 'CUSTOMER' ? <CustomerPortal onOpenChat={handleOpenChat} /> : <TicketsSection role={role} token={token} onOpenChat={handleOpenChat} />)}
 
-        {tab === 'articles' && <ArticlesPanel role={role} />}
-        {tab === 'chat' && <ChatPanel token={token} tickets={tickets} focusTicketId={chatFocusId} />}
-        {tab === 'metrics' && <MetricsPanel />}
-        {tab === 'billing' && role === 'ADMIN' && <BillingPanel />}
-        {tab === 'users' && role === 'ADMIN' && <AdminPanel />}
+          {tab === 'articles' && <ArticlesPanel role={role} />}
+          {tab === 'chat' && <ChatPanel token={token} tickets={tickets} focusTicketId={chatFocusId} />}
+          {tab === 'metrics' && <MetricsPanel />}
+          {tab === 'billing' && role === 'ADMIN' && <BillingPanel />}
+          {tab === 'users' && role === 'ADMIN' && <AdminPanel />}
+        </Suspense>
 
         {/* ===================== PRUEBAS API ===================== */}
         {tab === 'tests' && (

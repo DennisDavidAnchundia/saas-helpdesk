@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBillingMe, useCheckoutSession } from '../hooks/useData';
+import { apiDate } from '../lib/time';
 import { CreditCardIcon, SparkIcon } from './icons';
 
 type PlanId = 'FREE' | 'PRO' | 'ENTERPRISE';
@@ -24,7 +25,7 @@ export default function BillingPanel() {
     setError('');
     try {
       const { url } = await checkout.mutateAsync(target as 'PRO' | 'ENTERPRISE');
-      window.location.href = url;
+      window.location.assign(url);
     } catch {
       setError(t('billing.errorCheckout'));
     }
@@ -113,7 +114,7 @@ export default function BillingPanel() {
 
         {billing.currentPeriodEnd && (
           <p className="mt-3 text-xs text-slate-400">
-            {t('billing.periodUntil')}: {new Date(billing.currentPeriodEnd).toLocaleDateString(i18n.language)}
+            {t('billing.periodUntil')}: {apiDate(billing.currentPeriodEnd).toLocaleDateString(i18n.language)}
           </p>
         )}
       </section>

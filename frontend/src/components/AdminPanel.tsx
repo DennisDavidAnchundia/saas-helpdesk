@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SlaPolicy, UserInfo, UserRole } from '../services/api';
 import {
@@ -27,6 +27,15 @@ export default function AdminPanel() {
   const [slaForm, setSlaForm] = useState<SlaPolicy | null>(null);
   const [savedNote, setSavedNote] = useState(false);
 
+  // Sincroniza el formulario cuando llegan datos nuevos del servidor.
+  // Ajuste de estado durante el render (patron de React): si la referencia
+  // del dato del servidor cambia, reiniciamos el borrador local una sola vez.
+  const [syncedSla, setSyncedSla] = useState<SlaPolicy | null>(null);
+  if (slaQuery.data && slaQuery.data !== syncedSla) {
+    setSyncedSla(slaQuery.data);
+    setSlaForm(slaQuery.data);
+  }
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,11 +45,6 @@ export default function AdminPanel() {
   const [resetFor, setResetFor] = useState<number | null>(null);
   const [resetValue, setResetValue] = useState('');
   const [resetDone, setResetDone] = useState<number | null>(null);
-
-  // Sincroniza el formulario cuando llegan los datos del servidor
-  useEffect(() => {
-    if (slaQuery.data) setSlaForm(slaQuery.data);
-  }, [slaQuery.data]);
 
   const users = usersQuery.data ?? [];
   const error =

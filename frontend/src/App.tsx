@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
@@ -33,35 +33,43 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** Recibe el callback de OAuth (?token=...&email=...), guarda la sesion y entra. */
+/** Parsea el callback de OAuth (?token=...&email=...); null si falta algo o el JWT es invalido. */
+function parseCallbackSession(): AuthState | null {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  const email = params.get('email');
+  if (!token || !email) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1])) as { role?: string; tenantName?: string };
+    return {
+      token,
+      email,
+      role: payload.role ?? 'CUSTOMER',
+      tenantName: payload.tenantName ?? 'Mi Empresa',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Recibe el callback de OAuth, guarda la sesion y entra. */
 function OAuthCallback({ onSuccess }: { onSuccess: (auth: AuthState) => void }) {
   const { t } = useTranslation();
-  const [error, setError] = useState(false);
+  // La URL no cambia mientras el componente vive: la sesion se deriva una sola vez
+  const session = useMemo(() => parseCallbackSession(), []);
 
+  // Sincroniza con sistemas externos (localStorage + historial del navegador)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    const email = params.get('email');
-    if (!token || !email) {
-      setError(true);
-      return;
-    }
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const role = payload.role || 'CUSTOMER';
-      const tenantName = payload.tenantName || 'Mi Empresa';
-      localStorage.setItem('token', token);
-      localStorage.setItem('email', email);
-      localStorage.setItem('role', role);
-      localStorage.setItem('tenantName', tenantName);
-      onSuccess({ token, email, role, tenantName });
-      window.history.replaceState({}, '', '/');
-    } catch {
-      setError(true);
-    }
-  }, [onSuccess]);
+    if (!session) return;
+    localStorage.setItem('token', session.token);
+    localStorage.setItem('email', session.email);
+    localStorage.setItem('role', session.role);
+    localStorage.setItem('tenantName', session.tenantName);
+    onSuccess(session);
+    window.history.replaceState({}, '', '/');
+  }, [session, onSuccess]);
 
-  if (error) return <Navigate to="/login" replace />;
+  if (!session) return <Navigate to="/login" replace />;
 
   return (
     <div className="grid min-h-dvh place-items-center">
