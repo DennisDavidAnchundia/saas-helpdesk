@@ -7,8 +7,12 @@ spring:
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 10000
+      initialization-fail-timeout: 10000
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: false
@@ -36,6 +40,8 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
+      timeout: 5000
+      connect-timeout: 5000
       ssl:
         enabled: ${REDIS_SSL:false}
 
@@ -53,6 +59,9 @@ spring:
               - email
               - profile
 
+  main:
+    lazy-initialization: true
+
 server:
   port: 8080
 
@@ -64,6 +73,9 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    redis:
+      enabled: false
 
 app:
   jwt:
