@@ -45,4 +45,14 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
     @Query("SELECT t.agent.fullName, COUNT(t) FROM Ticket t WHERE t.tenant.id = :tenantId AND t.agent IS NOT NULL " +
            "GROUP BY t.agent.id, t.agent.fullName ORDER BY COUNT(t) DESC")
     List<Object[]> countByAgent(@Param("tenantId") Long tenantId, Pageable pageable);
+
+    @Query(value = """
+            SELECT to_char(d.day, 'YYYY-MM-DD') AS label,
+                   COALESCE((SELECT COUNT(*) FROM tickets t
+                             WHERE t.tenant_id = :tenantId AND t.created_at::date = d.day), 0),
+                   COALESCE((SELECT COUNT(*) FROM tickets t
+                             WHERE t.tenant_id = :tenantId AND t.resolved_at::date = d.day), 0)
+            FROM generate_series(CURRENT_DATE - INTERVAL '13 days', CURRENT_DATE, INTERVAL '1 day') AS d(day)
+            """, nativeQuery = true)
+    List<Object[]> dailyTrendRaw(@Param("tenantId") Long tenantId);
 }

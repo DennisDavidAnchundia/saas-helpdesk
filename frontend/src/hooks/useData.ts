@@ -156,6 +156,67 @@ export function useMarkTicketRead() {
   });
 }
 
+// ===================== Archivos adjuntos =====================
+
+export interface AttachmentInfo {
+  id: number;
+  fileName: string;
+  contentType: string | null;
+  sizeBytes: number;
+  uploaderName: string | null;
+  createdAt: string;
+}
+
+export function useAttachments(ticketId: number | null) {
+  return useQuery({
+    queryKey: ['attachments', ticketId] as const,
+    queryFn: async () => {
+      const { data } = await apiClient.get<AttachmentInfo[]>(`/tickets/${ticketId}/attachments`);
+      return data;
+    },
+    enabled: ticketId !== null,
+  });
+}
+
+export function useUploadAttachment(ticketId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      const { data } = await apiClient.post<AttachmentInfo>(`/tickets/${ticketId}/attachments`, form);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attachments', ticketId] }),
+  });
+}
+
+export function useDeleteAttachment(ticketId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (attachmentId: number) => {
+      await apiClient.delete(`/tickets/${ticketId}/attachments/${attachmentId}`);
+      return true;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attachments', ticketId] }),
+  });
+}
+
+/** Descarga con el token del interceptor y guarda via <a download>. */
+export async function downloadAttachment(ticketId: number, att: AttachmentInfo): Promise<void> {
+  const res = await apiClient.get<Blob>(`/tickets/${ticketId}/attachments/${att.id}/download`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(res.data);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = att.fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ===================== Admin: usuarios y SLA =====================
 
 export function useUsers(enabled = true) {
@@ -333,6 +394,23 @@ export function useDashboardSummary() {
     queryKey: queryKeys.dashboardSummary,
     queryFn: async () => {
       const { data } = await apiClient.get<DashboardSummary>('/dashboard/summary');
+      return data;
+    },
+  });
+}
+
+export interface TrendPoint {
+  date: string;
+  created: number;
+  resolved: number;
+}
+
+/** Serie diaria de los ultimos 14 dias para las graficas. */
+export function useDashboardTrend() {
+  return useQuery({
+    queryKey: ['dashboard', 'trend'] as const,
+    queryFn: async () => {
+      const { data } = await apiClient.get<TrendPoint[]>('/dashboard/trend');
       return data;
     },
   });

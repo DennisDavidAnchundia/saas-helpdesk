@@ -1,6 +1,7 @@
 package com.helpdesk.service;
 
 import com.helpdesk.dto.DashboardSummaryResponse;
+import com.helpdesk.dto.TrendPointResponse;
 import com.helpdesk.model.enums.TicketStatus;
 import com.helpdesk.repository.TicketRepository;
 import org.springframework.data.domain.PageRequest;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -64,5 +66,16 @@ public class DashboardService {
             total += Duration.between((LocalDateTime) pair[0], (LocalDateTime) pair[1]).getSeconds();
         }
         return (double) total / pairs.size();
+    }
+
+    /** Serie diaria creados/resueltos de los ultimos 14 dias (incluye hoy). */
+    @Transactional(readOnly = true)
+    public List<TrendPointResponse> trend(Long tenantId) {
+        return ticketRepository.dailyTrendRaw(tenantId).stream()
+                .map(row -> new TrendPointResponse(
+                        LocalDate.parse((String) row[0]),
+                        ((Number) row[1]).longValue(),
+                        ((Number) row[2]).longValue()))
+                .toList();
     }
 }
