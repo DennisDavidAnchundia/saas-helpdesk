@@ -2,6 +2,7 @@ package com.helpdesk.service;
 
 import com.helpdesk.config.JwtPrincipal;
 import com.helpdesk.dto.ChatMessageResponse;
+import com.helpdesk.dto.OnlineUserResponse;
 import com.helpdesk.dto.SendChatMessageRequest;
 import com.helpdesk.model.Message;
 import com.helpdesk.model.MessageRead;
@@ -11,6 +12,8 @@ import com.helpdesk.repository.MessageReadRepository;
 import com.helpdesk.repository.MessageRepository;
 import com.helpdesk.repository.TicketRepository;
 import com.helpdesk.repository.UserRepository;
+import com.helpdesk.service.event.Notifications;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,17 +30,20 @@ public class ChatService {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final PresenceService presenceService;
+    private final ApplicationEventPublisher events;
 
     public ChatService(MessageRepository messageRepository,
                        MessageReadRepository messageReadRepository,
                        TicketRepository ticketRepository,
                        UserRepository userRepository,
-                       PresenceService presenceService) {
+                       PresenceService presenceService,
+                       ApplicationEventPublisher events) {
         this.messageRepository = messageRepository;
         this.messageReadRepository = messageReadRepository;
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
         this.presenceService = presenceService;
+        this.events = events;
     }
 
     @Transactional
@@ -53,7 +59,26 @@ public class ChatService {
         message.setSender(sender);
         message.setContent(request.getContent().trim());
 
-        return ChatMessageResponse.from(messageRepository.save(message));
+        ChatMessageResponse response = ChatMessageResponse.from(messageRepository.save(message));
+
+        // Si el cliente escribe y hay agente asignado, el agente recibe un aviso por email
+        if ("CUSTOMER".equals(principal.getRole())
+                && ticket.getAgent() != null
+                && !ticket.getAgent().getId().equals(sender.getId())) {
+            String preview = response.getContent();
+            if (preview.length() > 80) {
+                preview = preview.substring(0, 80) + "…";
+            }
+            events.publishEvent(new Notifications.CustomerReplied(
+                    ticket.getId(),
+                    ticket.getTitle(),
+                    ticket.getAgent().getEmail(),
+                    ticket.getAgent().getFullName(),
+                    sender.getFullName(),
+                    preview));
+        }
+
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -68,6 +93,19 @@ public class ChatService {
     public List<Long> onlineParticipants(JwtPrincipal principal, Long ticketId) {
         Ticket ticket = accessibleTicket(principal, ticketId);
         return presenceService.onlineUsers(ticket.getTenant().getId());
+    }
+
+    /** Presencia con datos reales de usuario (nombre y rol) para mostrar en el chat. */
+    @Transactional(readOnly = true)
+    public List<OnlineUserResponse> onlineParticipantsDetailed(JwtPrincipal principal, Long ticketId) {
+        Ticket ticket = accessibleTicket(principal, ticketId);
+        Long tenantId = ticket.getTenant().getId();
+        return presenceService.onlineUsers(tenantId).stream()
+                .map(userRepository::findById)
+                .flatMap(optional -> optional.stream())
+                .filter(user -> user.getTenant().getId().equals(tenantId))
+                .map(user -> new OnlineUserResponse(user.getId(), user.getFullName(), user.getRole().name()))
+                .toList();
     }
 
     /** Marca la conversacion como leida hasta ahora para este usuario (upsert). */

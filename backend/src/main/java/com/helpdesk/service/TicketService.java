@@ -12,6 +12,8 @@ import com.helpdesk.model.enums.TicketStatus;
 import com.helpdesk.repository.TicketRepository;
 import com.helpdesk.repository.TicketSpecifications;
 import com.helpdesk.repository.UserRepository;
+import com.helpdesk.service.event.Notifications;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,13 +30,16 @@ public class TicketService {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final SubscriptionService subscriptionService;
+    private final ApplicationEventPublisher events;
 
     public TicketService(TicketRepository ticketRepository,
                          UserRepository userRepository,
-                         SubscriptionService subscriptionService) {
+                         SubscriptionService subscriptionService,
+                         ApplicationEventPublisher events) {
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
         this.subscriptionService = subscriptionService;
+        this.events = events;
     }
 
     @Transactional
@@ -73,7 +78,9 @@ public class TicketService {
         Ticket ticket = getEntity(tenantId, ticketId);
         User agent = getActiveAgent(tenantId, agentId);
         ticket.setAgent(agent);
-        return TicketResponse.from(ticketRepository.save(ticket));
+        Ticket saved = ticketRepository.save(ticket);
+        publishAssigned(saved, agent);
+        return TicketResponse.from(saved);
     }
 
     /**
@@ -85,8 +92,11 @@ public class TicketService {
         Ticket ticket = getEntity(tenantId, ticketId);
 
         if ("AGENT".equals(role)) {
-            ticket.setAgent(getActiveAgent(tenantId, requesterId));
-            return TicketResponse.from(ticketRepository.save(ticket));
+            User self = getActiveAgent(tenantId, requesterId);
+            ticket.setAgent(self);
+            Ticket saved = ticketRepository.save(ticket);
+            publishAssigned(saved, self);
+            return TicketResponse.from(saved);
         }
 
         List<User> agents = userRepository.findActiveAgentsByTenant(tenantId);
@@ -104,7 +114,20 @@ public class TicketService {
                 .orElseThrow();
 
         ticket.setAgent(selected);
-        return TicketResponse.from(ticketRepository.save(ticket));
+        Ticket saved = ticketRepository.save(ticket);
+        publishAssigned(saved, selected);
+        return TicketResponse.from(saved);
+    }
+
+    /** Evento de asignacion para el inbox de notificaciones (email). */
+    private void publishAssigned(Ticket ticket, User agent) {
+        events.publishEvent(new Notifications.Assigned(
+                ticket.getId(),
+                ticket.getTitle(),
+                ticket.getTenant().getName(),
+                agent.getEmail(),
+                agent.getFullName(),
+                ticket.getCustomer() != null ? ticket.getCustomer().getFullName() : null));
     }
 
     private User getActiveAgent(Long tenantId, Long agentId) {
@@ -228,6 +251,16 @@ public class TicketService {
         if (target == TicketStatus.REOPENED) {
             ticket.setResolvedAt(null);
             ticket.setClosedAt(null);
+        }
+
+        if (target == TicketStatus.RESOLVED || target == TicketStatus.CLOSED) {
+            events.publishEvent(new Notifications.Resolved(
+                    ticket.getId(),
+                    ticket.getTitle(),
+                    target.name(),
+                    ticket.getCustomer().getEmail(),
+                    ticket.getCustomer().getFullName(),
+                    ticket.getAgent() != null ? ticket.getAgent().getFullName() : null));
         }
 
         return TicketResponse.from(ticketRepository.save(ticket));

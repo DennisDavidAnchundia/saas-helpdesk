@@ -3,6 +3,7 @@ package com.helpdesk.controller;
 import com.helpdesk.config.JwtPrincipal;
 import com.helpdesk.dto.ChatMessageResponse;
 import com.helpdesk.dto.CreateTicketRequest;
+import com.helpdesk.dto.OnlineUserResponse;
 import com.helpdesk.dto.TicketPageResponse;
 import com.helpdesk.dto.TicketResponse;
 import com.helpdesk.dto.UpdateTicketRequest;
@@ -103,9 +104,9 @@ public class TicketController {
     }
 
     @GetMapping("/{id}/presence")
-    public Map<String, List<Long>> presence(@PathVariable Long id,
-                                            @AuthenticationPrincipal JwtPrincipal principal) {
-        return Map.of("online", chatService.onlineParticipants(principal, id));
+    public Map<String, List<OnlineUserResponse>> presence(@PathVariable Long id,
+                                                          @AuthenticationPrincipal JwtPrincipal principal) {
+        return Map.of("online", chatService.onlineParticipantsDetailed(principal, id));
     }
 
     /** Mapa ticketId -> cantidad de mensajes no leidos para el usuario actual. */

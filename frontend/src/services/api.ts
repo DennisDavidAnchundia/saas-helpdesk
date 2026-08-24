@@ -273,7 +273,13 @@ export async function getMessages(token: string, ticketId: number): Promise<Chat
   return res.json();
 }
 
-export async function getPresence(token: string, ticketId: number): Promise<number[]> {
+export interface OnlineUser {
+  id: number;
+  fullName: string;
+  role: string;
+}
+
+export async function getPresence(token: string, ticketId: number): Promise<OnlineUser[]> {
   const res = await fetch(`${API}/api/tickets/${ticketId}/presence`, {
     headers: { Authorization: `Bearer ${token}` },
   });

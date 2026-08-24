@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Client, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { getMessages, getPresence, type ChatMessage, type Ticket, type TicketStatus } from '../services/api';
+import { getMessages, getPresence, type ChatMessage, type OnlineUser, type Ticket, type TicketStatus } from '../services/api';
 import { useChangeTicketStatus, useMarkTicketRead, useUnreadCounts } from '../hooks/useData';
 import { decodeJwt } from '../lib/jwt';
 import { STATUS_STYLES, TRANSITIONS } from './ticketUi';
@@ -26,6 +26,7 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
   const [input, setInput] = useState('');
   const [connected, setConnected] = useState(false);
   const [onlineIds, setOnlineIds] = useState<number[]>([]);
+  const [onlineRoster, setOnlineRoster] = useState<OnlineUser[]>([]);
   const [error, setError] = useState('');
 
   const statusMutation = useChangeTicketStatus();
@@ -70,7 +71,12 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
     getMessages(token, selectedId)
       .then(setMessages)
       .catch((err) => setError(err.message));
-    getPresence(token, selectedId).then(setOnlineIds).catch(() => {});
+    getPresence(token, selectedId)
+      .then((users) => {
+        setOnlineRoster(users);
+        setOnlineIds(users.map((u) => u.id));
+      })
+      .catch(() => {});
   }, [selectedId, token]);
 
   useEffect(() => {
@@ -85,7 +91,17 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
         client.subscribe(`/topic/presence/${tenantId}`, (m: IMessage) => {
           try {
             const data = JSON.parse(m.body);
-            setOnlineIds(Array.isArray(data.online) ? data.online : []);
+            const ids: number[] = Array.isArray(data.online) ? data.online : [];
+            setOnlineIds(ids);
+            // Si aparece alguien que no esta en el roster, pedimos nombres de nuevo
+            setOnlineRoster((prev) => {
+              if (ids.some((id) => !prev.some((u) => u.id === id)) && selectedRef.current) {
+                getPresence(token, selectedRef.current)
+                  .then(setOnlineRoster)
+                  .catch(() => {});
+              }
+              return prev;
+            });
           } catch { /* ignore */ }
         });
         if (selectedRef.current) {
@@ -173,7 +189,23 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
           <span className={connected ? 'font-medium text-emerald-600 dark:text-emerald-400' : 'font-medium text-red-500'}>
             {connected ? t('chat.connected') : t('chat.disconnected')}
           </span>
-          <span className="text-slate-400">· {t('chat.online')}: {onlineIds.length}</span>
+          <span className="hidden text-slate-400 sm:inline">·</span>
+          <span className="hidden flex-wrap items-center gap-1 sm:flex">
+            {onlineRoster.filter((u) => onlineIds.includes(u.id)).map((u) => (
+              <span
+                key={u.id}
+                title={u.role}
+                className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+              >
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                {u.fullName}
+                {u.id === userId && ' (vos)'}
+              </span>
+            ))}
+            {onlineIds.length === 0 && (
+              <span className="text-[11px] text-slate-400">{t('chat.nobodyOnline')}</span>
+            )}
+          </span>
         </div>
       </div>
 
@@ -245,7 +277,7 @@ export default function ChatPanel({ token, tickets, focusTicketId }: Props) {
             </p>
           )}
 
-          <div className="h-80 space-y-2 overflow-y-auto rounded-xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-black/20">
+          <div className="h-[50dvh] max-h-96 min-h-64 space-y-2 overflow-y-auto rounded-xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-black/20">
             {messages.map((m) => {
               const mine = m.senderId === userId;
               return (
