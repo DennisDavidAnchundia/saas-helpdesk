@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  downloadAttachment,
   useAgents,
   useAssignAgent,
+  useAttachments,
   useAutoAssignAgent,
   useChangeTicketStatus,
+  useDeleteAttachment,
   useTicket,
+  useUploadAttachment,
+  type AttachmentInfo,
 } from '../hooks/useData';
 import { ChatIcon } from './icons';
 import { PRIORITY_STYLES, STATUS_STYLES, TRANSITIONS } from './ticketUi';
@@ -34,6 +39,112 @@ function useNow(intervalMs = 60_000): number {
     return () => clearInterval(id);
   }, [intervalMs]);
   return now;
+}
+
+/** "1.2 MB" legible a partir de bytes. */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Tarjeta de archivos adjuntos del ticket: lista, subida y descarga protegida. */
+function AttachmentsCard({ ticketId, role }: { ticketId: number; role: string }) {
+  const { t, i18n } = useTranslation();
+  const query = useAttachments(ticketId);
+  const upload = useUploadAttachment(ticketId);
+  const remove = useDeleteAttachment(ticketId);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+  const isStaff = role === 'ADMIN' || role === 'AGENT';
+
+  const handleDownload = async (att: AttachmentInfo) => {
+    setDownloadingId(att.id);
+    try {
+      await downloadAttachment(ticketId, att);
+    } catch {
+      /* el navegador no descarga; el error no rompe la UI */
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  return (
+    <div className="mt-4 rounded-2xl border border-slate-200/70 p-4 dark:border-white/10">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          📎 {t('tickets.attachments')}
+          {query.data && query.data.length > 0 && (
+            <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 dark:bg-white/10 dark:text-slate-300">
+              {query.data.length}
+            </span>
+          )}
+        </p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) upload.mutate(file);
+            e.target.value = '';
+          }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={upload.isPending}
+          className="cursor-pointer rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:-translate-y-0.5 hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-slate-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
+        >
+          {upload.isPending ? t('tickets.uploading') : `＋ ${t('tickets.attach')}`}
+        </button>
+      </div>
+
+      {(upload.error || remove.error) && (
+        <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400">
+          {upload.error?.message ?? remove.error?.message}
+        </p>
+      )}
+
+      {query.isLoading ? (
+        <p className="mt-3 text-xs text-slate-400">{t('common.loading')}</p>
+      ) : !query.data || query.data.length === 0 ? (
+        <p className="mt-3 text-xs text-slate-400">{t('tickets.noAttachments')}</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/5">
+          {query.data.map((att) => (
+            <li key={att.id} className="flex flex-wrap items-center gap-2 py-2">
+              <span aria-hidden className="text-base">📄</span>
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700 dark:text-slate-200">
+                {att.fileName}
+              </span>
+              <span className="text-[11px] text-slate-400">{formatSize(att.sizeBytes)}</span>
+              <span className="hidden text-[11px] text-slate-400 sm:inline">
+                {att.uploaderName} · {new Date(att.createdAt).toLocaleDateString(i18n.language)}
+              </span>
+              <button
+                onClick={() => handleDownload(att)}
+                disabled={downloadingId === att.id}
+                className="cursor-pointer rounded-lg px-2 py-1 text-[11px] font-semibold text-brand-600 transition-colors hover:bg-brand-50 disabled:opacity-50 dark:text-brand-300 dark:hover:bg-brand-500/10"
+              >
+                ⬇ {downloadingId === att.id ? '…' : t('tickets.download')}
+              </button>
+              {isStaff && (
+                <button
+                  onClick={() => remove.mutate(att.id)}
+                  disabled={remove.isPending}
+                  title={t('tickets.deleteAttachment')}
+                  className="cursor-pointer rounded-lg px-2 py-1 text-[11px] font-semibold text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
+                >
+                  ✕
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export default function TicketDetailPanel({ ticketId, role, onClose, onOpenChat }: Props) {
@@ -155,6 +266,8 @@ export default function TicketDetailPanel({ ticketId, role, onClose, onOpenChat 
       <p className="mt-3 whitespace-pre-line rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm leading-relaxed text-slate-600 dark:border-white/5 dark:bg-white/[0.04] dark:text-slate-300">
         {tk.description}
       </p>
+
+      <AttachmentsCard ticketId={tk.id} role={role} />
 
       {/* Info completa */}
       <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
