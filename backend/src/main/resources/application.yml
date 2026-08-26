@@ -83,6 +83,8 @@ app:
     expiration: 86400000
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+  oauth2:
+    redirect-url: ${OAUTH2_REDIRECT_URL:http://localhost:5173}
   uploads:
     dir: ${UPLOADS_DIR:./data/uploads}
   mail:
